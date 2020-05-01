@@ -3,7 +3,7 @@ var assert = require('assert');
 
 describe('all extension modules', function() {
   it('should not throw when require\'d', function(done) {
-    var extFolder = __dirname + '/../lib/ext';
+    var extFolder = __dirname + '/../src/ext';
     fs.readdir(extFolder, function(err, list) {
       assert.ifError(err);
       list.forEach(function(name) {

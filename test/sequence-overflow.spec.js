@@ -1,4 +1,4 @@
-var x11 = require('../lib');
+var x11 = require('../src');
 var should = require('should');
 var assert = require('assert');
 
