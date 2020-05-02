@@ -1,14 +1,32 @@
 const x11 = require('../src')
-const should = require('should')
 const assert = require('assert')
 
-describe('Client', () => {
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '91'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
 
-  let display
+describe('Client', () => {
+  let xvfbProc
+
+  let xDisplay
+
+  beforeAll(async (done) => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+    done()
+  })
+
+  afterAll(done => {
+    xvfbProc.kill()
+    done()
+  })
+
   beforeEach(done => {
-    const client = x11.createClient((err, dpy) => {
+    const client = x11.createClient(testOptions, (err, dpy) => {
       if (!err) {
-        display = dpy
+        xDisplay = dpy
         done()
         client.removeListener('error', done)
       } else {
@@ -19,12 +37,12 @@ describe('Client', () => {
   })
 
   afterEach(done => {
-    display.client.on('end', done)
-    display.client.terminate()
+    xDisplay.client.on('end', done)
+    xDisplay.client.terminate()
   })
 
   it('should respond to ping()', done => {
-    display.client.ping(done)
+    xDisplay.client.ping(done)
   })
 
   it('should allow to enqueue requests and gracefully execute them before close()', done => {
@@ -33,11 +51,11 @@ describe('Client', () => {
       if (err) return done(err)
       count++
     }
-    display.client.ping(pong)
-    display.client.ping(pong)
-    display.client.ping(pong)
-    display.client.ping(pong)
-    display.client.close(err => {
+    xDisplay.client.ping(pong)
+    xDisplay.client.ping(pong)
+    xDisplay.client.ping(pong)
+    xDisplay.client.ping(pong)
+    xDisplay.client.close(err => {
       if (err) return done(err)
       assert.equal(count, 4)
       done()

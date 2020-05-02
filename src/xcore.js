@@ -556,7 +556,7 @@ XClient.prototype.expectReplyHeader = function()
 XClient.prototype.startHandshake = function() {
     var client = this;
 
-    handshake.writeClientHello(this.pack_stream, this.displayNum, this.authHost, this.authFamily);
+    handshake.writeClientHello(this.pack_stream, this.displayNum, this.authHost, this.authFamily, client.options);
     handshake.readServerHello(this.pack_stream, function(err, display)
     {
         if (err) {

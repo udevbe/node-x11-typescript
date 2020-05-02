@@ -2,16 +2,35 @@ const x11 = require('../src')
 const should = require('should')
 const assert = require('assert')
 
-describe('KillKlient request', () => {
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '88'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
 
-  let display
+describe('KillKlient request', () => {
+  let xvfbProc
+
+  let xDisplay
   let X
+
+  beforeAll(async (done) => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+    done()
+  })
+
+  afterAll(done => {
+    xvfbProc.kill()
+    done()
+  })
+
   beforeEach(done => {
-    const client = x11.createClient((err, dpy) => {
+    const client = x11.createClient(testOptions, (err, dpy) => {
       should.not.exist(err)
-      display = dpy
-      X = display.client
-      const root = display.screen[0].root
+      xDisplay = dpy
+      X = xDisplay.client
+      const root = xDisplay.screen[0].root
       const eventMask = x11.eventMask.SubstructureNotify
       X.ChangeWindowAttributes(root, { eventMask: eventMask })
       done()
@@ -31,7 +50,7 @@ describe('KillKlient request', () => {
   })
 
   it('should terminate other client connection', done => {
-    x11.createClient((err, dpy) => {
+    x11.createClient(testOptions, (err, dpy) => {
       should.not.exist(err)
       const otherclient = dpy.client
       const wnd = otherclient.AllocID()

@@ -1,18 +1,28 @@
-var x11 = require('../src')
-var should = require('should')
-var assert = require('assert')
-var util = require('util')
+const x11 = require('../src')
+const should = require('should')
 
-describe('XTEST extension', function() {
-  var display
-  var X
-  var xtest
-  beforeAll(function(done) {
-    var client = x11.createClient(function(err, dpy) {
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '81'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
+
+describe('XTEST extension', () => {
+  let xvfbProc
+
+  let xDisplay
+  let X
+  let xtest
+
+  beforeAll(async done => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+
+    const client = x11.createClient(testOptions, (err, dpy) => {
       if (!err) {
-        display = dpy
-        X = display.client
-        X.require('xtest', function(err, ext) {
+        xDisplay = dpy
+        X = xDisplay.client
+        X.require('xtest', (err, ext) => {
           should.not.exist(err)
           xtest = ext
           done()
@@ -25,17 +35,19 @@ describe('XTEST extension', function() {
     client.on('error', done)
   })
 
-  describe('GetVersion', function() {
-    it('should return version 2.2', function(done) {
-      xtest.GetVersion(2, 2, function(err, version) {
+  describe('GetVersion', () => {
+    it('should return version 2.2', done => {
+      xtest.GetVersion(2, 2, (err, version) => {
         version.should.eql([2, 2])
         done()
       })
     })
   })
 
-  afterAll(function(done) {
+  afterAll(done => {
     X.terminate()
     X.on('end', done)
+
+    xvfbProc.kill()
   })
 })

@@ -1,45 +1,70 @@
-var x11 = require('../src');
-var should = require('should');
-var assert = require('assert');
+const x11 = require('../src')
+const should = require('should')
 
-describe('Client', function() {
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '82'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
 
-  var display;
-  beforeEach(function(done) {
-      var client = x11.createClient(function(err, dpy) {
-          if (!err) {
-              display = dpy;
-              done();
-              client.removeListener('error', done);
-          } else {
-              done(err);
-          }
-      });
-      client.on('error', done);
-  });
+describe('Client', () => {
+  let xvfbProc
 
-  it('should handle more than 65535 requests in one connection', function(done) {
-      should.exist(display);
-      should.exist(display.screen);
-      var total = 70000;
-      var left = total;
-      var start = Date.now();
-      function test(err, str) {
-         if (err)
-            return done(err);
+  let xDisplay
+  let X
 
-         if (left == 0) {
-            var end = Date.now();
-            var dur = end - start;
-            console.log(total + ' requests finished in ' + dur + ' ms, ' + 1000*total/dur + ' req/sec');
-            return done();
-         }
-         left--;
-         display.client.GetAtomName(1, test);
+  beforeAll(async (done) => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+    done()
+  })
+
+  afterAll(done => {
+    xvfbProc.kill()
+    done()
+  })
+
+  beforeEach(done => {
+    const client = x11.createClient(testOptions, (err, dpy) => {
+      if (!err) {
+        xDisplay = dpy
+        X = xDisplay.client
+        done()
+        client.removeListener('error', done)
+      } else {
+        done(err)
       }
+    })
+    client.on('error', done)
+  })
 
-      left++;
-      test(); // first call starts sequens and not a callback from GetAtomName, thus left++
-  });
+  afterEach(done => {
+    X.terminate()
+    X.on('end', done)
+  })
 
-});
+  it('should handle more than 65535 requests in one connection', done => {
+    should.exist(xDisplay)
+    should.exist(xDisplay.screen)
+    const total = 70000
+    let left = total
+    const start = Date.now()
+
+    function test(err, str) {
+      if (err)
+        return done(err)
+
+      if (left == 0) {
+        const end = Date.now()
+        const dur = end - start
+        console.log(total + ' requests finished in ' + dur + ' ms, ' + 1000 * total / dur + ' req/sec')
+        return done()
+      }
+      left--
+      xDisplay.client.GetAtomName(1, test)
+    }
+
+    left++
+    test() // first call starts sequens and not a callback from GetAtomName, thus left++
+  })
+})

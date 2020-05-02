@@ -1,34 +1,54 @@
 const x11 = require('../src')
 const should = require('should')
 
-let X
-let root
-let wid
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '94'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
 
-beforeAll(done => {
-  const client = x11.createClient((err, dpy) => {
-    should.not.exist(err)
-    X = dpy.client
-    root = dpy.screen[0].root
-    wid = X.AllocID()
-    /* X acts like a WM */
-    X.ChangeWindowAttributes(root, { eventMask: x11.eventMask.SubstructureRedirect })
-    X.CreateWindow(wid, root, 0, 0, 1, 1) // 1x1 pixel window
-    X.QueryTree(root, (err, list) => {
+
+describe('ConfigureRequest', () => {
+  let xvfbProc
+
+  let X
+  let root
+  let wid
+
+  beforeAll(async done => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+
+    const client = x11.createClient(testOptions, (err, dpy) => {
       should.not.exist(err)
-      list.children.indexOf(wid).should.not.equal(-1)
-      done()
+      X = dpy.client
+      root = dpy.screen[0].root
+      wid = X.AllocID()
+      /* X acts like a WM */
+      X.ChangeWindowAttributes(root, { eventMask: x11.eventMask.SubstructureRedirect })
+      X.CreateWindow(wid, root, 0, 0, 1, 1) // 1x1 pixel window
+      X.QueryTree(root, (err, list) => {
+        should.not.exist(err)
+        list.children.indexOf(wid).should.not.equal(-1)
+        done()
+      })
+    })
+
+    client.on('error', err => {
+      console.error('Error : ', err)
     })
   })
 
-  client.on('error', err => {
-    console.error('Error : ', err)
-  })
-})
+  afterAll(done => {
+    X.DestroyWindow(wid)
+    X.on('end', done)
+    X.terminate()
 
-describe('ConfigureRequest', () => {
+    xvfbProc.kill()
+  })
+
   it('should be emitted to the WM if this wid is configured by a client', done => {
-    const client = x11.createClient((err, dpy) => {
+    const client = x11.createClient(testOptions, (err, dpy) => {
       should.not.exist(err)
       X.once('event', ev => {
         ev.name.should.equal('ConfigureRequest')
@@ -45,10 +65,4 @@ describe('ConfigureRequest', () => {
 
     client.on('error', done)
   })
-})
-
-afterAll(done => {
-  X.DestroyWindow(wid)
-  X.on('end', done)
-  X.terminate()
 })

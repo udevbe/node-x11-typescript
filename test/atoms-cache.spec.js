@@ -1,25 +1,43 @@
 const x11 = require('../src')
 const should = require('should')
-const assert = require('assert')
 const sinon = require('sinon')
 const async = require('async')
 
-let client
-let X
-let xPackStreamFlushSpy
-
-beforeAll(done => {
-  client = x11.createClient((err, dpy) => {
-    should.not.exist(err)
-    X = dpy.client
-    xPackStreamFlushSpy = sinon.spy(X.pack_stream, 'flush')
-    done()
-  })
-
-  client.on('error', done)
-})
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '98'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const connectionOptions = { display, xAuthority }
 
 describe('Atoms and atom names cache', () => {
+  let xvfbProc
+
+  let client
+  let X
+  let xPackStreamFlushSpy
+
+  beforeAll(async done => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+
+    client = x11.createClient(connectionOptions, (err, dpy) => {
+      should.not.exist(err)
+      X = dpy.client
+      xPackStreamFlushSpy = sinon.spy(X.pack_stream, 'flush')
+      done()
+    })
+
+    client.on('error', done)
+  })
+
+  afterAll(done => {
+    X.pack_stream.flush.restore()
+    X.terminate()
+    X.on('end', done)
+
+    xvfbProc.kill()
+  })
+
   it('should be used directly when requesting std atoms with InternAtom', done => {
     X.InternAtom(true, 'WM_NAME', (err, atom) => {
       should.not.exist(err)
@@ -103,10 +121,4 @@ describe('Atoms and atom names cache', () => {
       }
     )
   })
-})
-
-afterAll(done => {
-  X.pack_stream.flush.restore()
-  X.terminate()
-  X.on('end', done)
 })

@@ -2,14 +2,34 @@ const x11 = require('../src')
 const should = require('should')
 const assert = require('assert')
 
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '89'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
+
 describe('ForceScreenSaver request', () => {
-  let display
+  let xvfbProc
+
+  let xDisplay
   let X
+
+  beforeAll(async (done) => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+    done()
+  })
+
+  afterAll(done => {
+    xvfbProc.kill()
+    done()
+  })
+
   beforeEach(done => {
-    const client = x11.createClient((err, dpy) => {
+    const client = x11.createClient(testOptions,(err, dpy) => {
       if (!err) {
-        display = dpy
-        X = display.client
+        xDisplay = dpy
+        X = xDisplay.client
       }
 
       done(err)
@@ -21,7 +41,7 @@ describe('ForceScreenSaver request', () => {
     X.terminate()
     X.on('end', done)
     X = null
-    display = null
+    xDisplay = null
   })
 
   it('should exist as client member', done => {

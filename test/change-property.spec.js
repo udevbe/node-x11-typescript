@@ -1,32 +1,51 @@
 const x11 = require('../src')
 const should = require('should')
 
-const TEST_PROPERTY = 'My Test Property'
-
-let client
-let X
-let wid
-let wid_helper
-
-beforeAll(done => {
-  client = x11.createClient((err, dpy) => {
-    should.not.exist(err)
-    X = dpy.client
-    wid = X.AllocID()
-    wid_helper = X.AllocID()
-    X.CreateWindow(wid, dpy.screen[0].root, 0, 0, 1, 1) // 1x1 pixel window
-    X.QueryTree(dpy.screen[0].root, (err, list) => {
-      should.not.exist(err)
-      list.children.indexOf(wid).should.not.equal(-1)
-      X.ChangeWindowAttributes(wid, { eventMask: x11.eventMask.PropertyChange })
-      done()
-    })
-  })
-
-  client.on('error', done)
-})
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '96'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
 
 describe('ChangeProperty', () => {
+  let xvfbProc
+
+  const TEST_PROPERTY = 'My Test Property'
+
+  let client
+  let X
+  let wid
+  let wid_helper
+
+  beforeAll(async done => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+
+    client = x11.createClient(testOptions, (err, dpy) => {
+      should.not.exist(err)
+      X = dpy.client
+      wid = X.AllocID()
+      wid_helper = X.AllocID()
+      X.CreateWindow(wid, dpy.screen[0].root, 0, 0, 1, 1) // 1x1 pixel window
+      X.QueryTree(dpy.screen[0].root, (err, list) => {
+        should.not.exist(err)
+        list.children.indexOf(wid).should.not.equal(-1)
+        X.ChangeWindowAttributes(wid, { eventMask: x11.eventMask.PropertyChange })
+        done()
+      })
+    })
+
+    client.on('error', done)
+  })
+
+  afterAll(done => {
+    X.DestroyWindow(wid)
+    X.terminate()
+    X.on('end', done)
+
+    xvfbProc.kill()
+  })
+
   it('should add a new WINDOW property with length 1', done => {
     X.InternAtom(false, TEST_PROPERTY, (err, atom) => {
       should.not.exist(err)
@@ -84,11 +103,5 @@ describe('ChangeProperty', () => {
       })
     })
   })
-})
-
-afterAll(done => {
-  X.DestroyWindow(wid)
-  X.terminate()
-  X.on('end', done)
 })
 

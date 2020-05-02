@@ -1,83 +1,101 @@
 const x11 = require('../src')
 const should = require('should')
 
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '99'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
+
 // This test was ported from X Test Suite @ http://cgit.freedesktop.org/xorg/test/xts/
 
-let client
-let X
-let screen
-let wid
-let root
+describe('AllowEvents', () => {
+  let xvfbProc
 
-function warpPointer(wid, x, y, cb) {
-  X.QueryPointer(wid, (err, old_pointer) => {
-    if (err) {
-      return cb(err)
-    }
+  let client
+  let X
+  let screen
+  let wid
+  let root
 
-    X.WarpPointer(0,
-      wid,
-      0,
-      0,
-      0,
-      0,
-      x,
-      y)
+  beforeAll(async done => {
+    xvfbProc = await setupXvfb(display, xAuthority)
 
-    X.QueryPointer(wid, (err, new_pointer) => {
+    client = x11.createClient(testOptions, (err, dpy) => {
+      should.not.exist(err)
+      X = dpy.client
+      screen = dpy.screen[0]
+      root = screen.root
+      wid = X.AllocID()
+      X.CreateWindow(wid,
+        root,
+        0,
+        0,
+        screen.pixel_width,
+        screen.pixel_height)
+      X.MapWindow(wid)
+      done()
+    })
+
+    client.on('error', err => {
+      console.error('Error : ', err)
+    })
+  })
+
+  afterAll((done) => {
+    X.terminate()
+    X.on('end', done)
+
+    xvfbProc.kill()
+  })
+
+  function warpPointer(wid, x, y, cb) {
+    X.QueryPointer(wid, (err, old_pointer) => {
       if (err) {
         return cb(err)
       }
 
-      cb(undefined, {
-        old_x: old_pointer.childX,
-        old_y: old_pointer.childY,
-        new_x: new_pointer.childX,
-        new_y: new_pointer.childY
+      X.WarpPointer(0,
+        wid,
+        0,
+        0,
+        0,
+        0,
+        x,
+        y)
+
+      X.QueryPointer(wid, (err, new_pointer) => {
+        if (err) {
+          return cb(err)
+        }
+
+        cb(undefined, {
+          old_x: old_pointer.childX,
+          old_y: old_pointer.childY,
+          new_x: new_pointer.childX,
+          new_y: new_pointer.childY
+        })
       })
     })
-  })
-}
+  }
 
-function isPointerFrozen(cb) {
-  warpPointer(wid, 0, 0, err => {
-    if (err) {
-      return cb(err)
-    }
-
-    warpPointer(wid, 1, 1, (err, data) => {
+  function isPointerFrozen(cb) {
+    warpPointer(wid, 0, 0, err => {
       if (err) {
         return cb(err)
       }
 
-      cb(undefined, data.old_x === data.new_x)
+      warpPointer(wid, 1, 1, (err, data) => {
+        if (err) {
+          return cb(err)
+        }
+
+        cb(undefined, data.old_x === data.new_x)
+      })
     })
-  })
-}
+  }
 
-beforeAll(done => {
-  client = x11.createClient((err, dpy) => {
-    should.not.exist(err)
-    X = dpy.client
-    screen = dpy.screen[0]
-    root = screen.root
-    wid = X.AllocID()
-    X.CreateWindow(wid,
-      root,
-      0,
-      0,
-      screen.pixel_width,
-      screen.pixel_height)
-    X.MapWindow(wid)
-    done()
-  })
-
-  client.on('error', err => {
-    console.error('Error : ', err)
-  })
-})
-
-describe('AllowEvents', () => {
   it('if pointer is frozen by the client calling AllowEvents with AsyncPointer should resume the processing', done => {
     X.GrabPointer(
       wid,
@@ -101,9 +119,4 @@ describe('AllowEvents', () => {
       })
     })
   })
-})
-
-afterAll((done) => {
-  X.terminate()
-  X.on('end', done)
 })

@@ -1,6 +1,12 @@
 const x11 = require('../src')
-const should = require('should')
 const assert = require('assert')
+
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '87'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
 
 // keep for a while: this snippet helps to track global leak
 global.__defineSetter__('valueName', v => {
@@ -8,17 +14,29 @@ global.__defineSetter__('valueName', v => {
 })
 
 describe('Window property', () => {
+  let xvfbProc
 
-  let display
+  let xDisplay
   let X
   let wid
+
+  beforeAll(async (done) => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+    done()
+  })
+
+  afterAll(done => {
+    xvfbProc.kill()
+    done()
+  })
+
   beforeEach(done => {
-    const client = x11.createClient((err, dpy) => {
+    const client = x11.createClient(testOptions, (err, dpy) => {
       if (!err) {
-        display = dpy
-        X = display.client
+        xDisplay = dpy
+        X = xDisplay.client
         wid = X.AllocID()
-        X.CreateWindow(wid, display.screen[0].root, 0, 0, 100, 100, 0, 0, 0, 0, { eventMask: x11.eventMask.PropertyChange })
+        X.CreateWindow(wid, xDisplay.screen[0].root, 0, 0, 100, 100, 0, 0, 0, 0, { eventMask: x11.eventMask.PropertyChange })
         done()
         client.removeListener('error', done) // all future errors should be attached to corresponding test 'done'
       } else {
@@ -32,7 +50,7 @@ describe('Window property', () => {
     X.terminate()
     X.on('end', done)
     X = null
-    display = null
+    xDisplay = null
   })
 
   it('shuld exist after set with ChangeProperty', done => {

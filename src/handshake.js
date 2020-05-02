@@ -61,7 +61,7 @@ function readScreens(bl, display, cbDisplayReady)
                      cb();
                  else
                      readDepths(bl, display, depths, n_depths, cb);
-             });  
+             });
          });
      }
 
@@ -202,7 +202,7 @@ function getByteOrder() {
     }
 }
 
-function writeClientHello(stream, displayNum, authHost, authFamily)
+function writeClientHello(stream, displayNum, authHost, authFamily, options)
 {
     getAuthString( displayNum, authHost, authFamily, function( err, cookie ) {
         if (err) {
@@ -224,7 +224,7 @@ function writeClientHello(stream, displayNum, authHost, authFamily)
             ]
         );
         stream.flush();
-    });
+    }, options);
 }
 
 module.exports.readServerHello = readServerHello;

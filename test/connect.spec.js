@@ -3,13 +3,32 @@ const should = require('should')
 const assert = require('assert')
 const util = require('util')
 
-describe('Client', () => {
+const setupXvfb = require('./setupXvfb')
+// Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
+const displayNum = '92'
+const display = `:${displayNum}`
+const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
+const testOptions = { display, xAuthority }
 
-  let display
+describe('Client', () => {
+  let xvfbProc
+
+  let xDisplay
+
+  beforeAll(async (done) => {
+    xvfbProc = await setupXvfb(display, xAuthority)
+    done()
+  })
+
+  afterAll(done => {
+    xvfbProc.kill()
+    done()
+  })
+
   beforeEach(done => {
-    const client = x11.createClient((err, dpy) => {
+    const client = x11.createClient(testOptions, (err, dpy) => {
       if (!err) {
-        display = dpy
+        xDisplay = dpy
         done()
         client.removeListener('error', done)
       } else {
@@ -21,23 +40,26 @@ describe('Client', () => {
   })
 
   afterEach(done => {
-    display.client.on('end', done)
-    display.client.terminate()
+    xDisplay.client.on('end', done)
+    xDisplay.client.terminate()
   })
 
   it('calls first createClient parameter with display object', done => {
-    should.exist(display)
-    should.exist(display.screen)
-    should.exist(display.screen[0])
-    should.exist(display.screen[0].root)
-    should.exist(display.major)
+    should.exist(xDisplay)
+    should.exist(xDisplay.screen)
+    should.exist(xDisplay.screen[0])
+    should.exist(xDisplay.screen[0].root)
+    should.exist(xDisplay.major)
     done()
   })
 
   it('uses display variable from parameter if present ignoring environment $DISPLAY', done => {
     const disp = process.env.DISPLAY
     process.env.DISPLAY = 'BOGUS DISPLAY'
-    const client = x11.createClient({ display: disp }, done)
+    const client = x11.createClient(testOptions, (err, dpy) => {
+      dpy.client.terminate()
+      done()
+    })
     client.on('error', done)
     process.env.DISPLAY = disp
   })
@@ -60,7 +82,7 @@ describe('Client', () => {
 
   it('returns error when connecting to non existent display', done => {
     let errorCbCalled = false
-    const client = x11.createClient({ display: ':44' }, (err, display) => {
+    const client = x11.createClient({ display: ':666' }, (err, display) => {
       assert(util.isError(err))
       errorCbCalled = true
       done()
