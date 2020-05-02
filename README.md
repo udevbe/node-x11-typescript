@@ -5,6 +5,6 @@ WIP
 
 ## TODO
 - [x] fix test setup
-- [ ] migrate to jest & remove mocha - in progress...
+- [x] migrate to jest & remove mocha
 - [ ] migrate to typescript
 - [ ] migrate X connection code to server that accepts websocket connections from client
