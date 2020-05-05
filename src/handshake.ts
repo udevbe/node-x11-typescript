@@ -1,13 +1,14 @@
 import getAuthString from './auth'
-import xutil from './xutil'
+import { PackStream } from './unpackstream'
+import { padded_length } from './xutil'
 
-function readVisuals(bl, visuals, n_visuals, cb) {
+function readVisuals(bl, visuals: XVisual[], n_visuals: number, cb: () => void) {
   if (n_visuals == 0) {
     cb()
     return
   }
 
-  const visual = {}
+  const visual: XVisual = {}
   bl.unpackTo(visual,
     [
       'L vid',
@@ -20,9 +21,9 @@ function readVisuals(bl, visuals, n_visuals, cb) {
       'xxxx'
     ],
     () => {
-      const vid = visual.vid
+      const vid: number = visual.vid
       // delete visual.vid;
-      visuals[visual.vid] = visual
+      visuals[vid] = visual
       if (Object.keys(visuals).length == n_visuals)
         cb()
       else
@@ -30,9 +31,9 @@ function readVisuals(bl, visuals, n_visuals, cb) {
     })
 }
 
-function readScreens(bl, display, cbDisplayReady) {
-  const numParsedDepths = 0
-  const readDepths = (bl, display, depths, n_depths, cb) => {
+function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady) {
+  let numParsedDepths = 0
+  const readDepths = (bl: PackStream, display: XDisplay, depths: XVisual[], n_depths: number, cb) => {
     if (n_depths == 0) {
       cb()
       return
@@ -41,15 +42,16 @@ function readScreens(bl, display, cbDisplayReady) {
     bl.unpack('CxSxxxx', res => {
       const dep = res[0]
       const n_visuals = res[1]
-      const visuals = {}
+      const visuals: XVisual = {}
       readVisuals(bl, visuals, n_visuals, () => {
-        if (dep in depths) {
-          for (let visual in visuals) {
-            depths[dep][visual] = visuals[visual]
-          }
-        } else {
+        // if (dep in depths) {
+        //   for (let visual in visuals) {
+        // FIXME this line doesn't make sense
+        //     depths[dep][visual] = visuals[visual]
+        //   }
+        // } else {
           depths[dep] = visuals
-        }
+        // }
         numParsedDepths++
         if (numParsedDepths == n_depths)
           cb()
@@ -61,7 +63,7 @@ function readScreens(bl, display, cbDisplayReady) {
 
   // for (i=0; i < display.screen_num; ++i)
   {
-    const scr = {}
+    const scr: XScreen = {}
     bl.unpackTo(scr,
       [
         'L root',
@@ -101,15 +103,14 @@ function readScreens(bl, display, cbDisplayReady) {
   }
 }
 
-function readServerHello(bl: PackStream, cb: (err, display) => void) {
-  bl.unpack('C', (res: Buffer) => {
+export function readServerHello(bl: PackStream, cb: (err: Error, display?: XDisplay) => void) {
+  bl.unpack('C', (res: number[]) => {
     if (res[0] == 0) {
       // conection time error
       // unpack error
       bl.unpack('Cxxxxxx', rlen => {
         bl.get(rlen[0], reason => {
-          const err = new Error
-          err.message = 'X server connection failed: ' + reason.toString()
+          const err = new Error('X server connection failed: ' + reason.toString())
           cb(err)
         })
       })
@@ -144,7 +145,7 @@ function readServerHello(bl: PackStream, cb: (err, display) => void) {
       ],
 
       () => {
-        const pvlen = xutil.padded_length(display.vlen)
+        const pvlen = padded_length(display.vlen)
 
         // setup data to generate resource id
         // TODO: cleaunup code here
@@ -189,7 +190,7 @@ function getByteOrder(): number {
 
 // TODO give options type of connection options
 // TODO give stream type of PackStream from unpackstream file
-function writeClientHello(stream: PackStream, displayNum: string, authHost: string, socketFamily: 'IPv4' | 'IPv6', options: XConnectionOptions): void {
+export function writeClientHello(stream: PackStream, displayNum: string, authHost: string, socketFamily: 'IPv4' | 'IPv6', options: XConnectionOptions): void {
   getAuthString(displayNum, authHost, socketFamily, (err, cookie) => {
     if (err) {
       throw err

@@ -1,6 +1,7 @@
 import { Buffer } from 'buffer'
 import { EventEmitter } from 'events'
-import xutil from './xutil'
+import { Writable } from 'stream'
+import { padded_length } from './xutil'
 
 enum ProtocolFormat {
   C = 'C',
@@ -8,10 +9,12 @@ enum ProtocolFormat {
   s = 's',
   l = 'l',
   L = 'L',
-  x = 'x'
+  x = 'x',
+  p = 'p',
+  a = 'a'
 }
 
-const argument_length = {
+const argument_length: { [key: string]: number } = {
   [ProtocolFormat.C]: 1,
   [ProtocolFormat.S]: 2,
   [ProtocolFormat.s]: 2,
@@ -21,23 +24,23 @@ const argument_length = {
 }
 
 interface ReadRequest {
-  execute(bufferlist: Unpackstream): boolean
+  execute(bufferlist: PackStream): boolean
 }
 
 class ReadFormatRequest implements ReadRequest {
-  private format: ProtocolFormat[]
+  private readonly format: string
   private current_arg: number
-  private data: number[]
-  private callback: (data: number[]) => void
+  private readonly data: number[]
+  private readonly callback: (data: number[]) => void
 
-  constructor(format: ProtocolFormat[], callback: (data: number[]) => void) {
+  constructor(format: string, callback: (data: number[]) => void) {
     this.format = format
     this.current_arg = 0
     this.data = []
     this.callback = callback
   }
 
-  execute(bufferlist: Unpackstream): boolean {
+  execute(bufferlist: PackStream): boolean {
     while (this.current_arg < this.format.length) {
       const arg = this.format[this.current_arg]
       if (bufferlist.length < argument_length[arg])
@@ -48,19 +51,19 @@ class ReadFormatRequest implements ReadRequest {
       // maybe best approach is to wait all data required for format and then process fixed buffer
       // TODO: byte order!!!
       switch (arg) {
-        case 'C': {
+        case ProtocolFormat.C: {
           this.data.push(bufferlist.getbyte())
           break
         }
-        case 'S':
-        case 's': {
+        case ProtocolFormat.S:
+        case ProtocolFormat.s: {
           const b1 = bufferlist.getbyte()
           const b2 = bufferlist.getbyte()
           this.data.push(b2 * 256 + b1)
           break
         }
-        case 'l':
-        case 'L': {
+        case ProtocolFormat.l:
+        case ProtocolFormat.L: {
           const b1 = bufferlist.getbyte()
           const b2 = bufferlist.getbyte()
           const b3 = bufferlist.getbyte()
@@ -68,7 +71,7 @@ class ReadFormatRequest implements ReadRequest {
           this.data.push(((b4 * 256 + b3) * 256 + b2) * 256 + b1)
           break
         }
-        case 'x': {
+        case ProtocolFormat.x: {
           bufferlist.getbyte()
           break
         }
@@ -93,7 +96,7 @@ class ReadFixedRequest implements ReadRequest {
     this.received_bytes = 0
   }
 
-  execute(bufferlist: Unpackstream): boolean {
+  execute(bufferlist: PackStream): boolean {
     // TODO: this is a brute force version
     // replace with Buffer.slice calls
     const to_receive = this.length - this.received_bytes
@@ -107,9 +110,10 @@ class ReadFixedRequest implements ReadRequest {
   }
 }
 
-class Unpackstream extends EventEmitter {
+export class PackStream extends EventEmitter {
+  length: number
+
   private readonly readlist: Buffer[]
-  private length: number
   private offset: number
   private read_queue: ReadRequest[]
   private write_queue: Buffer[]
@@ -133,32 +137,32 @@ class Unpackstream extends EventEmitter {
     this.resume()
   }
 
-  pipe(stream) {
+  pipe(stream: Writable) {
     // TODO: ondrain & pause
     this.on('data', data => {
       stream.write(data)
     })
   }
 
-  unpack(format: ProtocolFormat[], callback: (data: number[]) => void): void {
+  unpack(format: string, callback: (data: number[]) => void): void {
     this.read_queue.push(new ReadFormatRequest(format, callback))
     this.resume()
   }
 
-  unpackTo(destination: { [key: string]: number }, names_formats: string, callback: (arg: { [key: string]: number }) => void) {
+  unpackTo(destination: { [key: string]: number }, names_formats: string[], callback: (arg: { [key: string]: number }) => void) {
     const names: string[] = []
-    let format: ProtocolFormat[] = []
+    let format: string = ''
 
     for (let i = 0; i < names_formats.length; ++i) {
       let off = 0
-      while (off < names_formats[i].length && names_formats[i][off] == 'x') {
-        format.push(ProtocolFormat.x)
+      while (off < names_formats[i].length && names_formats[i][off] === ProtocolFormat.x) {
+        format += ProtocolFormat.x
         off++
       }
 
       if (off < names_formats[i].length) {
         const formatName = names_formats[i][off] as keyof typeof ProtocolFormat
-        format.push(ProtocolFormat[formatName])
+        format += formatName
         const name = names_formats[i].substr(off + 2)
         names.push(name)
       }
@@ -211,17 +215,17 @@ class Unpackstream extends EventEmitter {
     return res
   }
 
-  pack(format: ProtocolFormat[], args: number[]) {
+  pack(format: string, args: any[]) {
     let packetlength = 0
 
-    var arg = 0
-    for (var i = 0; i < format.length; ++i) {
+    let arg = 0
+    for (let i = 0; i < format.length; ++i) {
       const f = format[i]
-      if (f == 'x') {
+      if (f == ProtocolFormat.x) {
         packetlength++
-      } else if (f == 'p') {
-        packetlength += xutil.padded_length(args[arg++].length)
-      } else if (f == 'a') {
+      } else if (f === ProtocolFormat.p) {
+        packetlength += padded_length(args[arg++].length)
+      } else if (f === ProtocolFormat.a) {
         packetlength += args[arg].length
         arg++
       } else {
@@ -233,42 +237,46 @@ class Unpackstream extends EventEmitter {
 
     const buf = Buffer.alloc(packetlength)
     let offset = 0
-    var arg = 0
-    for (var i = 0; i < format.length; ++i) {
+    arg = 0
+    for (let i = 0; i < format.length; ++i) {
       switch (format[i]) {
-        case 'x':
+        case ProtocolFormat.x: {
           buf[offset++] = 0
           break
-        case 'C':
-          var n = args[arg++]
+        }
+        case ProtocolFormat.C: {
+          const n = args[arg++]
           buf[offset++] = n
           break
-        case 's':
-          var n = args[arg++]
+        }
+        case ProtocolFormat.s: {
+          const n = args[arg++]
           buf.writeInt16LE(n, offset)
           offset += 2
           break
-
-        case 'S':
-          var n = args[arg++]
+        }
+        case ProtocolFormat.S: {
+          const n = args[arg++]
           buf[offset++] = n & 0xff
           buf[offset++] = (n >> 8) & 0xff
           break
-        case 'l':
-          var n = args[arg++]
+        }
+        case ProtocolFormat.l: {
+          const n = args[arg++]
           buf.writeInt32LE(n, offset)
           offset += 4
           break
-
-        case 'L':
-          var n = args[arg++]
+        }
+        case ProtocolFormat.L: {
+          const n = args[arg++]
           buf[offset++] = n & 0xff
           buf[offset++] = (n >> 8) & 0xff
           buf[offset++] = (n >> 16) & 0xff
           buf[offset++] = (n >> 24) & 0xff
           break
-        case 'a':  // string, buffer, or array
-          var str = args[arg++]
+        }
+        case ProtocolFormat.a: {  // string, buffer, or array
+          const str = args[arg++]
           if (Buffer.isBuffer(str)) {
             str.copy(buf, offset)
             offset += str.length
@@ -276,20 +284,23 @@ class Unpackstream extends EventEmitter {
             for (let item of str) buf[offset++] = item
           } else {
             // TODO: buffer.write could be faster
-            for (var c = 0; c < str.length; ++c)
+            for (let c = 0; c < str.length; ++c) {
               buf[offset++] = str.charCodeAt(c)
+            }
           }
           break
-        case 'p':  // padded string
-          var str = args[arg++]
-          const len = xutil.padded_length(str.length)
+        }
+        case ProtocolFormat.p: {  // padded string
+          const str = args[arg++]
+          const len = padded_length(str.length)
           // TODO: buffer.write could be faster
-          var c = 0
+          let c = 0
           for (; c < str.length; ++c)
             buf[offset++] = str.charCodeAt(c)
           for (; c < len; ++c)
             buf[offset++] = 0
           break
+        }
       }
     }
     this.write_queue.push(buf)
@@ -297,7 +308,7 @@ class Unpackstream extends EventEmitter {
     return this
   }
 
-  flush(stream) {
+  flush() {
     // TODO: measure performance benefit of
     // creating and writing one big concatenated buffer
 
@@ -311,5 +322,3 @@ class Unpackstream extends EventEmitter {
     this.write_length = 0
   }
 }
-
-module.exports = UnpackStream
