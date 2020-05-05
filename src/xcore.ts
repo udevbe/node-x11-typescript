@@ -55,8 +55,8 @@ export class XClient extends EventEmitter {
   private seq_num_ = 0
   private seq2stack: { [key: number]: Error } = {}
   private replies = {}
-  private atoms: (Readonly<StdAtoms> | { [key: string]: number }) = stdAtoms
-  private atom_names: { [key: number]: string } = (() => {
+  atoms: (Readonly<StdAtoms> & { [key: string]: number }) = stdAtoms
+  atom_names: { [key: number]: string } = (() => {
     const names: { [key: number]: string } = {}
     Object.keys(stdAtoms).forEach((key) => {
       names[stdAtoms[key as keyof StdAtoms] as number] = key
@@ -69,7 +69,7 @@ export class XClient extends EventEmitter {
   private _extensions = {}
   private _closing = false
   private _unusedIds = []
-  private pending_atoms = {}
+  pending_atoms: {[key: number]: string} = {}
 
   constructor(displayNum: string, screenNum: string, options: XConnectionOptions) {
     super()

@@ -2,13 +2,13 @@ import { Buffer } from 'buffer'
 
 declare global {
   interface Buffer {
-    unpack(format: string, offset: number): number[]
+    unpack(format: string, offset?: number): number[]
 
     unpackString(n: number, offset: number): string
   }
 }
 
-Buffer.prototype.unpack = function(format: string, offset: number): number[] {
+Buffer.prototype.unpack = function(format: string, offset: number = 0): number[] {
   if (!offset)
     offset = 0
 

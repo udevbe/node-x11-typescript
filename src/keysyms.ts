@@ -6,7 +6,7 @@
 
 \* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-module.exports = {
+export default {
 
 /***********************************************************
 Copyright 1987, 1994, 1998  The Open Group
@@ -83,7 +83,7 @@ SOFTWARE.
  * Unicode number plus 0x01000000. The keysym values in the range
  * 0x01000100 to 0x0110ffff are reserved to represent Unicode
  * characters in the range (\u0100) to U+10FFFF.
- * 
+ *
  * While most newer Unicode-based X11 clients do already accept
  * Unicode-mapped keysyms in the range 0x01000100 to 0x0110ffff, it
  * will remain necessary for clients -- in the interest of
@@ -2000,7 +2000,7 @@ SOFTWARE.
 /*
  * Vietnamese
  */
- 
+
 // Group XK_VIETNAMESE
   XK_Abelowdot:                  { code: 0x1001ea0, description: "(\u1EA0) LATIN CAPITAL LETTER A WITH DOT BELOW" },
   XK_abelowdot:                  { code: 0x1001ea1, description: "(\u1EA1) LATIN SMALL LETTER A WITH DOT BELOW" },
@@ -2146,7 +2146,7 @@ SOFTWARE.
   XK_approxeq:                   { code: 0x1002248, description: "(\u2245) ALMOST EQUAL TO" },
   XK_notapproxeq:                { code: 0x1002247, description: "(\u2247) NOT ALMOST EQUAL TO" },
   XK_notidentical:               { code: 0x1002262, description: "(\u2262) NOT IDENTICAL TO" },
-  XK_stricteq:                   { code: 0x1002263, description: "(\u2263) STRICTLY EQUIVALENT TO" },          
+  XK_stricteq:                   { code: 0x1002263, description: "(\u2263) STRICTLY EQUIVALENT TO" },
 
 
 // Group XK_BRAILLE
@@ -2507,4 +2507,4 @@ SOFTWARE.
 
 
   NoSymbol: 0
-};
+}

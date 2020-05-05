@@ -31,9 +31,9 @@ class ReadFormatRequest implements ReadRequest {
   private readonly format: string
   private current_arg: number
   private readonly data: number[]
-  private readonly callback: (data: number[]) => void
+  private readonly callback?: (data: number[]) => void
 
-  constructor(format: string, callback: (data: number[]) => void) {
+  constructor(format: string, callback?: (data: number[]) => void) {
     this.format = format
     this.current_arg = 0
     this.data = []
@@ -78,7 +78,7 @@ class ReadFormatRequest implements ReadRequest {
       }
       this.current_arg++
     }
-    this.callback(this.data)
+    this.callback?.(this.data)
     return true
   }
 }
@@ -144,7 +144,7 @@ export class PackStream extends EventEmitter {
     })
   }
 
-  unpack(format: string, callback: (data: number[]) => void): void {
+  unpack(format: string, callback?: (data: number[]) => void): void {
     this.read_queue.push(new ReadFormatRequest(format, callback))
     this.resume()
   }

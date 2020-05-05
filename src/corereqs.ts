@@ -1,6 +1,7 @@
 // full list of event/error/request codes for all extensions:
 // http://www.opensource.apple.com/source/X11server/X11server-106.7/kdrive/xorg-server-1.6.5-apple3/dix/protocol.txt
 
+import { XClient } from './xcore'
 import { padded_length, padded_string } from './xutil'
 
 type ValueMaskValue = { format: string; mask: number }
@@ -221,7 +222,7 @@ type Foo = {
   }
 }
 
-function packValueMask<T extends keyof ValueMask>(reqname: T, values: { [key in keyof ValueMask[T] | string]: number }): [string, number, number[]] {
+function packValueMask<T extends keyof ValueMask>(reqname: T, values: Partial<{ [key in keyof ValueMask[T]]: number }>): [string, number, number[]] {
   let bitmask = 0
   const masksList: number[] = []
   let format = ''
@@ -282,7 +283,17 @@ the way requests are described here
 const templates = {
   CreateWindow: [
     // create request packet - function OR format string
-    (id: number, parentId: number, x: number, y: number, width: number, height: number, borderWidth = 0, depth = 0, _class = 0, visual = 0, values = {}) => {
+    (id: number,
+     parentId: number,
+     x: number,
+     y: number,
+     width: number,
+     height: number,
+     borderWidth = 0,
+     depth = 0,
+     _class = 0,
+     visual = 0,
+     values: Partial<Exclude<{ [key in keyof ValueMask['CreateWindow']]: number }, 'id' | 'parentId' | 'x' | 'y' | 'width' | 'height' | 'borderWidth' | 'depth' | '_class' | 'visual'>> = {}) => {
       let format = 'CCSLLssSSSSLL'
 
       // TODO: slice from function arguments?
@@ -304,7 +315,7 @@ const templates = {
   ],
 
   ChangeWindowAttributes: [
-    function(wid: number, values) {
+    function(wid: number, values: Partial<{ [key in keyof ValueMask['CreateWindow']]: number }>) {
       let format = 'CxSLSxx'
       const vals = packValueMask('CreateWindow', values)
       const packetLength = 3 + (values ? vals[2].length : 0)
@@ -318,18 +329,16 @@ const templates = {
 
   GetWindowAttributes: [
     ['CxSL', [3, 2]],
-    function(buf, backingStore) {
+    (buf: Buffer, backingStore: number) => {
       // TODO: change from array to named object fields
       const res = buf.unpack('LSCCLLCCCCLLLS')
-      const ret = {
-        backingStore: backingStore
-      }
+      const ret: { [key: string]: number } = { backingStore: backingStore };
       ('visual klass bitGravity winGravity backingPlanes backingPixel' +
         ' saveUnder mapIsInstalled mapState overrideRedirect colormap' +
         ' allEventMasks myEventMasks doNotPropogateMask')
-        .split(' ').forEach(function(field, index) {
-          ret[field] = res[index]
-        })
+        .split(' ').forEach((field: string, index: number) => {
+        ret[field] = res[index]
+      })
       return ret
     }
   ],
@@ -339,7 +348,7 @@ const templates = {
   ],
 
   ChangeSaveSet: [
-    function(isInsert, wid) {
+    function(isInsert: boolean, wid: number) {
       return ['CCSL', [6, (isInsert ? 0 : 1), 2, wid]]
     }
   ],
@@ -369,31 +378,31 @@ const templates = {
   ],
 
   ResizeWindow: [
-    function(win, width, height) {
+    function(win: number, width: number, height: number) {
       return module.exports.ConfigureWindow[0](win, { width: width, height: height })
     }
   ],
 
   MoveWindow: [
-    function(win, x, y) {
+    function(win: number, x: number, y: number) {
       return module.exports.ConfigureWindow[0](win, { x: x, y: y })
     }
   ],
 
   MoveResizeWindow: [
-    function(win, x, y, width, height) {
+    function(win: number, x: number, y: number, width: number, height: number) {
       return module.exports.ConfigureWindow[0](win, { x: x, y: y, width: width, height: height })
     }
   ],
 
   RaiseWindow: [
-    function(win) {
+    function(win: number) {
       return module.exports.ConfigureWindow[0](win, { stackMode: 0 })
     }
   ],
 
   LowerWindow: [
-    function(win) {
+    function(win: number) {
       return module.exports.ConfigureWindow[0](win, { stackMode: 1 })
     }
   ],
@@ -401,12 +410,18 @@ const templates = {
   QueryTree: [
     ['CxSL', [15, 2]],
 
-    function(buf) {
-      const tree = {}
+    function(buf: Buffer) {
       const res = buf.unpack('LLS')
-      tree.root = res[0]
-      tree.parent = res[1]
-      tree.children = []
+      const tree: {
+        root: number,
+        parent: number,
+        children: number[]
+      } = {
+        root: res[0],
+        parent: res[1],
+        children: []
+      }
+
       for (let i = 0; i < res[2]; ++i)
         tree.children.push(buf.unpack('L', 24 + i * 4)[0])
       return tree
@@ -415,12 +430,12 @@ const templates = {
 
   // opcode 16
   InternAtom: [
-    function(returnOnlyIfExist, value) {
+    function(returnOnlyIfExist: boolean, value: string) {
       const padded = padded_string(value)
       return ['CCSSxxa', [16, returnOnlyIfExist ? 1 : 0, 2 + padded.length / 4, value.length, padded]]
     },
 
-    function(buf, seq_num) {
+    function(this: XClient, buf: Buffer, seq_num: number) {
       const res = buf.unpack('L')[0]
       const pending_atom = this.pending_atoms[seq_num]
       if (!this.atoms[pending_atom]) {
@@ -435,11 +450,11 @@ const templates = {
 
   GetAtomName: [
     ['CxSL', [17, 2]],
-    function(buf, seq_num) {
+    function(this: XClient, buf: Buffer, seq_num: number) {
       const nameLen = buf.unpack('S')[0]
       // Atom value starting from 24th byte in the buffer
       const name = buf.unpackString(nameLen, 24)
-      const pending_atom = this.pending_atoms[seq_num]
+      const pending_atom: string = this.pending_atoms[seq_num]
       if (!this.atoms[pending_atom]) {
         this.atom_names[pending_atom] = name
         this.atoms[name] = pending_atom
@@ -453,7 +468,7 @@ const templates = {
   ChangeProperty: [
     // mode: 0 replace, 1 prepend, 2 append
     // format: 8/16/32
-    function(mode, wid, name, type, units, data) {
+    function(mode: 0 | 1 | 2, wid: number, name, type, units, data) {
       const padded4 = (data.length + 3) >> 2
       const pad = Buffer.alloc((padded4 << 2) - data.length)
       const format = 'CCSLLLCxxxLaa'
@@ -465,7 +480,7 @@ const templates = {
 
   // TODO: test
   DeleteProperty: [
-    function(wid, prop) {
+    function(wid: number, prop) {
       return ['CxSLL', [19, 3, wid, prop]]
     }
   ],

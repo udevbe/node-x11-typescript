@@ -2,7 +2,7 @@
  * GCFunction named shortcuts
  */
 
-module.exports = {
+export default {
   GXclear        : 0x0,
   GXand          : 0x1,
   GXandReverse   : 0x2,
@@ -19,4 +19,4 @@ module.exports = {
   GXorInverted   : 0xd,
   GXnand         : 0xe,
   GXset          : 0xf
-};
+}
