@@ -116,7 +116,7 @@ export class PackStream extends EventEmitter {
   private readonly readlist: Buffer[]
   private offset: number
   private read_queue: ReadRequest[]
-  private write_queue: Buffer[]
+  write_queue: Buffer[]
   private write_length: number
   private resumed: boolean
 

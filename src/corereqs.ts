@@ -1,15 +1,20 @@
 // full list of event/error/request codes for all extensions:
 // http://www.opensource.apple.com/source/X11server/X11server-106.7/kdrive/xorg-server-1.6.5-apple3/dix/protocol.txt
 
-import { XClient } from './xcore'
+import { ProtocolTemplates, XClient } from './xcore'
 import { padded_length, padded_string } from './xutil'
 
 type ValueMaskValue = { format: string; mask: number }
 
 type ValueMask = {
-  CreateWindow: { cursor: ValueMaskValue; backingPlanes: ValueMaskValue; overrideRedirect: ValueMaskValue; backingPixel: ValueMaskValue; bitGravity: ValueMaskValue; backgroundPixmap: ValueMaskValue; borderPixel: ValueMaskValue; borderPixmap: ValueMaskValue; saveUnder: ValueMaskValue; backgroundPixel: ValueMaskValue; doNotPropagateMask: ValueMaskValue; winGravity: ValueMaskValue; backingStore: ValueMaskValue; eventMask: ValueMaskValue; colormap: ValueMaskValue }; CreateGC: {
+  CreateWindow: {
+    cursor: ValueMaskValue; backingPlanes: ValueMaskValue; overrideRedirect: ValueMaskValue; backingPixel: ValueMaskValue; bitGravity: ValueMaskValue; backgroundPixmap: ValueMaskValue; borderPixel: ValueMaskValue; borderPixmap: ValueMaskValue; saveUnder: ValueMaskValue; backgroundPixel: ValueMaskValue; doNotPropagateMask: ValueMaskValue; winGravity: ValueMaskValue; backingStore: ValueMaskValue; eventMask: ValueMaskValue; colormap: ValueMaskValue
+  }; CreateGC: {
     clipXOrigin: ValueMaskValue; joinStyle: ValueMaskValue; capStyle: ValueMaskValue; arcMode: ValueMaskValue; subwindowMode: ValueMaskValue; foreground: ValueMaskValue; graphicsExposures: ValueMaskValue; clipMask: ValueMaskValue; dashOffset: ValueMaskValue; lineWidth: ValueMaskValue; dashes: ValueMaskValue; lineStyle: ValueMaskValue; fillRule: ValueMaskValue; background: ValueMaskValue; function: ValueMaskValue; tileStippleYOrigin: ValueMaskValue; tile: ValueMaskValue; fillStyle: ValueMaskValue; stipple: ValueMaskValue; planeMask: ValueMaskValue; clipYOrigin: ValueMaskValue; tileStippleXOrigin: ValueMaskValue; font: ValueMaskValue
-  }; ConfigureWindow: { stackMode: ValueMaskValue; sibling: ValueMaskValue; borderWidth: ValueMaskValue; x: ValueMaskValue; width: ValueMaskValue; y: ValueMaskValue; height: ValueMaskValue }
+  };
+  ConfigureWindow: {
+    stackMode: ValueMaskValue; sibling: ValueMaskValue; borderWidth: ValueMaskValue; x: ValueMaskValue; width: ValueMaskValue; y: ValueMaskValue; height: ValueMaskValue
+  }
 }
 
 const valueMask: ValueMask = {
@@ -207,20 +212,6 @@ const valueMaskName: { [key: string]: { [key: number]: string } } = Object.fromE
   }))]
 }))
 
-type Foo = {
-  bar: {
-    baz: {
-      qux: number,
-      quux: string
-    }
-  },
-  yuK: {
-    yak: {
-      qux: number,
-      quux: string
-    }
-  }
-}
 
 function packValueMask<T extends keyof ValueMask>(reqname: T, values: Partial<{ [key in keyof ValueMask[T]]: number }>): [string, number, number[]] {
   let bitmask = 0
@@ -280,7 +271,7 @@ the way requests are described here
 
 */
 
-const templates = {
+export const coreRequests: ProtocolTemplates = {
   CreateWindow: [
     // create request packet - function OR format string
     (id: number,
@@ -311,7 +302,6 @@ const templates = {
       args = args.concat(vals[2])
       return [format, args]
     }
-
   ],
 
   ChangeWindowAttributes: [
@@ -456,7 +446,10 @@ const templates = {
       const name = buf.unpackString(nameLen, 24)
       const pending_atom: string = this.pending_atoms[seq_num]
       if (!this.atoms[pending_atom]) {
+        // FIXME this is a bug
+        // @ts-ignore
         this.atom_names[pending_atom] = name
+        // @ts-ignore
         this.atoms[name] = pending_atom
       }
 
@@ -468,48 +461,45 @@ const templates = {
   ChangeProperty: [
     // mode: 0 replace, 1 prepend, 2 append
     // format: 8/16/32
-    function(mode: 0 | 1 | 2, wid: number, name, type, units, data) {
+    function(mode: 0 | 1 | 2, wid: number, atom_name: number, atom_type: number, units: 8 | 16 | 32, data: Buffer | string) {
       const padded4 = (data.length + 3) >> 2
       const pad = Buffer.alloc((padded4 << 2) - data.length)
       const format = 'CCSLLLCxxxLaa'
       const requestLength = 6 + padded4
       const dataLenInFormatUnits = data.length / (units >> 3)
-      return [format, [18, mode, requestLength, wid, name, type, units, dataLenInFormatUnits, data, pad]]
+      return [format, [18, mode, requestLength, wid, atom_name, atom_type, units, dataLenInFormatUnits, data, pad]]
     }
   ],
 
   // TODO: test
   DeleteProperty: [
-    function(wid: number, prop) {
+    function(wid: number, prop: number) {
       return ['CxSLL', [19, 3, wid, prop]]
     }
   ],
 
   GetProperty: [
-
-    function(del, wid, name, type, longOffset, longLength) //  - offest and maxLength in 4-byte units
+    function(del: number, wid: number, name: number, type: number, longOffset: number, longLength: number) //  - offest and maxLength in 4-byte units
     {
       return ['CCSLLLLL', [20, del, 6, wid, name, type, longOffset, longLength]]
     },
-
-    function(buf, format) {
+    function(buf: Buffer, format: 8 | 16 | 32) {
       const res = buf.unpack('LLL')
-      const prop = {}
-      prop.type = res[0]
-      prop.bytesAfter = res[1]
       const len = res[2] * (format >> 3)
-      prop.data = buf.slice(24, 24 + len)
-      return prop
+      return {
+        type: res[0],
+        bytesAfter: res[1],
+        data: buf.slice(24, 24 + len)
+      }
     }
   ],
 
   ListProperties: [
-
-    function(wid) {
+    function(wid: number) {
       return ['CxSL', [21, 2, wid]]
     },
 
-    function(buf) {
+    function(buf: Buffer) {
       const n = buf.unpack('S')[0]
       let i
       const atoms = []
@@ -522,102 +512,97 @@ const templates = {
   ],
 
   SetSelectionOwner: [
-    function(owner, selection, time) {
-      if (!time)
-        time = 0 // current time
+    function(owner: number, selection: number, time = 0) {
       return ['CxSLLL', [22, 4, owner, selection, time]]
     }
   ],
 
   GetSelectionOwner: [
-    function(selection) {
+    function(selection: number) {
       return ['CxSL', [23, 2, selection]]
     },
 
-    function(buf) {
+    function(buf: Buffer) {
       return buf.unpack('L')[0]
     }
   ],
 
   ConvertSelection: [
-    function(requestor, selection, target, property, time) {
-      if (!time)
-        time = 0
+    function(requestor: number, selection: number, target: number, property: number, time = 0) {
       return ['CxSLLLLL', [24, 6, requestor, selection, target, property, time]]
     }
   ],
 
   SendEvent: [
-
-    function(destination, propagate, eventMask, eventRawData) {
+    function(destination: number, propagate: number, eventMask: number, eventRawData: Buffer) {
       return ['CCSLLa', [25, propagate, 11, destination, eventMask, eventRawData]]
     }
   ],
 
   GrabPointer: [
-    function(wid, ownerEvents, mask, pointerMode, keybMode, confineTo, cursor, time) {
+    function(wid: number, ownerEvents: number, mask: number, pointerMode: number, keybMode: number, confineTo: number, cursor: number, time: number) {
       return ['CCSLSCCLLL', [26, ownerEvents, 6, wid, mask, pointerMode, keybMode,
         confineTo, cursor, time]]
     },
-    function(buf, status) {
+    function(buf: Buffer, status: number) {
       return status
     }
   ],
 
   UngrabPointer: [
-    function(time) {
+    function(time: number) {
       return ['CxSL', [27, 2, time]]
     }
   ],
 
   GrabButton: [
-    function(wid, ownerEvents, mask, pointerMode, keybMode, confineTo, cursor, button, modifiers) {
+    function(wid: number, ownerEvents: number, mask: number, pointerMode: number, keybMode: number, confineTo: number, cursor: number, button: number, modifiers: number) {
       return ['CCSLSCCLLCxS', [28, ownerEvents, 6, wid, mask, pointerMode, keybMode, confineTo,
         cursor, button, modifiers]]
     }
   ],
 
   UngrabButton: [
-    function(wid, button, modifiers) {
+    function(wid: number, button: number, modifiers: number) {
       return ['CCSLSxx', [29, button, 3, wid, modifiers]]
     }
   ],
 
   ChangeActivePointerGrab: [
-    function(cursor, time, mask) {
+    function(cursor: number, time: number, mask: number) {
       return ['CxSLLSxx', [30, 4, cursor, time, mask]]
     }
   ],
 
   GrabKeyboard: [
-    function(wid, ownerEvents, time, pointerMode, keybMode) {
+    function(wid: number, ownerEvents: number, time: number, pointerMode: number, keybMode: number) {
       return ['CCSLLCCxx', [31, ownerEvents, 4, wid, time, pointerMode, keybMode]]
     },
-    function(buf, status) {
+    function(buf: Buffer, status: number) {
       return status
     }
   ],
 
   UngrabKeyboard: [
-    function(time) {
+    function(time: number) {
       return ['CxSL', [32, 2, time]]
     }
   ],
 
   GrabKey: [
-    function(wid, ownerEvents, modifiers, key, pointerMode, keybMode) {
+    function(wid: number, ownerEvents: number, modifiers: number, key: number, pointerMode: number, keybMode: number) {
       return ['CCSLSCCCxxx', [33, ownerEvents, 4, wid, modifiers, key, pointerMode, keybMode]]
     }
   ],
 
   UngrabKey: [
-    function(wid, key, modifiers) {
+    function(wid: number, key: number, modifiers: number) {
       return ['CCSLSxx', [34, key, 3, wid, modifiers]]
     }
   ],
 
   AllowEvents: [
-    function(mode, ts) {
+    function(mode: number, ts: number) {
       return ['CCSL', [35, mode, 2, ts]]
     }
   ],
@@ -632,7 +617,7 @@ const templates = {
 
   QueryPointer: [
     ['CxSL', [38, 2]],
-    function(buf, sameScreen) {
+    function(buf: Buffer, sameScreen: number) {
       const res = buf.unpack('LLssssS')
       return {
         root: res[0],
@@ -648,23 +633,22 @@ const templates = {
   ],
 
   TranslateCoordinates: [
-    function(srcWid, dstWid, srcX, srcY) {
+    function(srcWid: number, dstWid: number, srcX: number, srcY: number) {
       return ['CxSLLSS', [40, 4, srcWid, dstWid, srcX, srcY]]
     },
-    function(buf, sameScreen) {
+    function(buf: Buffer, sameScreen: number) {
       const res = buf.unpack('Lss')
-      const ext = {}
-      ext.child = res[0]
-      ext.destX = res[1]
-      ext.destY = res[2]
-      ext.sameScreen = sameScreen
-      return ext
+      return {
+        child: res[0],
+        destX: res[1],
+        destY: res[2],
+        sameScreen: sameScreen
+      }
     }
   ],
 
   SetInputFocus: [
-
-    function(wid, revertTo) // revertTo: 0 - None, 1 - PointerRoot, 2 - Parent
+    function(wid: number, revertTo: 0 | 1 | 2) // revertTo: 0 - None, 1 - PointerRoot, 2 - Parent
     {
       return ['CCSLL', [42, revertTo, 3, wid, 0]]
     }
@@ -674,7 +658,7 @@ const templates = {
     function() {
       return ['CxS', [43, 1]]
     },
-    function(buf, revertTo) {
+    function(buf: Buffer, revertTo: 0 | 1 | 2) {
       return {
         focus: buf.unpack('L')[0],
         revertTo: revertTo
@@ -683,22 +667,21 @@ const templates = {
   ],
 
   WarpPointer: [
-
-    function(srcWin, dstWin, srcX, srcY, srcWidth, srcHeight, dstX, dstY) {
+    function(srcWin: number, dstWin: number, srcX: number, srcY: number, srcWidth: number, srcHeight: number, dstX: number, dstY: number) {
       return ['CxSLLssSSss', [41, 6, srcWin, dstWin, srcX, srcY, srcWidth, srcHeight, dstX, dstY]]
     }
   ],
 
   ListFonts: [
-    function(pattern, max) {
+    function(pattern: string, max: number) {
       const req_len = 2 + padded_length(pattern.length) / 4
       return ['CxSSSp', [49, req_len, max, pattern.length, pattern]]
     },
 
-    function(buf) {
+    function(buf: Buffer) {
       console.log(buf)
       // TODO: move to buffer.unpackStringList
-      const res = []
+      const res: string[] = []
       let off = 24
       while (off < buf.length) {
         let len = buf[off++]
@@ -717,33 +700,35 @@ const templates = {
   ],
 
   CreatePixmap: [
-    function(pid, drawable, depth, width, height) {
+    function(pid: number, drawable: number, depth: number, width: number, height: number) {
       return ['CCSLLSS', [53, depth, 4, pid, drawable, width, height]]
     }
   ],
 
   FreePixmap: [
-    function(pixmap) {
+    function(pixmap: number) {
       return ['CxSL', [54, 2, pixmap]]
     }
   ],
 
   CreateCursor: [
-    function(cid, source, mask, foreRGB, backRGB, x, y) {
-      foreR = foreRGB.R
-      foreG = foreRGB.G
-      foreB = foreRGB.B
+    function(cid: number, source: number, mask: number, foreRGB: { R: number, G: number, B: number }, backRGB: { R: number, G: number, B: number }, x: number, y: number) {
+      const foreR = foreRGB.R
+      const foreG = foreRGB.G
+      const foreB = foreRGB.B
 
-      backR = backRGB.R
-      backG = backRGB.G
-      backB = backRGB.B
+      const backR = backRGB.R
+      const backG = backRGB.G
+      const backB = backRGB.B
       return ['CxSLLLSSSSSSSS', [93, 8, cid, source, mask, foreR, foreG, foreB, backR, backG, backB, x, y]]
     }
   ],
 
   // opcode 55
   CreateGC: [
-    function(cid, drawable, values) {
+    function(cid: number, drawable: number, values: Partial<{
+      clipXOrigin: number; joinStyle: number; capStyle: number; arcMode: number; subwindowMode: number; foreground: number; graphicsExposures: number; clipMask: number; dashOffset: number; lineWidth: number; dashes: number; lineStyle: number; fillRule: number; background: number; function: number; tileStippleYOrigin: number; tile: number; fillStyle: number; stipple: number; planeMask: number; clipYOrigin: number; tileStippleXOrigin: number; font: number
+    }>) {
       let format = 'CxSLLL'
       const vals = packValueMask('CreateGC', values)
       const packetLength = 4 + (values ? vals[2].length : 0)
@@ -756,7 +741,9 @@ const templates = {
   ],
 
   ChangeGC: [
-    function(cid, values) {
+    function(cid: number, values: Partial<{
+      clipXOrigin: number; joinStyle: number; capStyle: number; arcMode: number; subwindowMode: number; foreground: number; graphicsExposures: number; clipMask: number; dashOffset: number; lineWidth: number; dashes: number; lineStyle: number; fillRule: number; background: number; function: number; tileStippleYOrigin: number; tile: number; fillStyle: number; stipple: number; planeMask: number; clipYOrigin: number; tileStippleXOrigin: number; font: number
+    }>) {
       let format = 'CxSLL'
       const vals = packValueMask('CreateGC', values)
       const packetLength = 3 + (values ? vals[2].length : 0)
@@ -769,21 +756,19 @@ const templates = {
   ],
 
   ClearArea: [
-    function(wid, x, y, width, height, exposures) {
+    function(wid: number, x: number, y: number, width: number, height: number, exposures: number) {
       return ['CCSLssSS', [61, exposures, 4, wid, x, y, width, height]]
     }
   ],
 
-  //
   CopyArea: [
-    function(srcDrawable, dstDrawable, gc, srcX, srcY, dstX, dstY, width, height) {
+    function(srcDrawable: number, dstDrawable: number, gc: number, srcX: number, srcY: number, dstX: number, dstY: number, width: number, height: number) {
       return ['CxSLLLssssSS', [62, 7, srcDrawable, dstDrawable, gc, srcX, srcY, dstX, dstY, width, height]]
     }
   ],
 
-
   PolyPoint: [
-    function(coordMode, drawable, gc, points) {
+    function(coordMode: number, drawable: number, gc: number, points: []) {
       let format = 'CCSLL'
       const args = [64, coordMode, 3 + points.length / 2, drawable, gc]
       for (let i = 0; i < points.length; ++i) {
@@ -796,7 +781,7 @@ const templates = {
 
   PolyLine: [
     // TODO: remove copy-paste - exectly same as PolyPoint, only differ with opcode
-    function(coordMode, drawable, gc, points) {
+    function(coordMode: number, drawable: number, gc: number, points: []) {
       let format = 'CCSLL'
       const args = [65, coordMode, 3 + points.length / 2, drawable, gc]
       for (let i = 0; i < points.length; ++i) {
@@ -809,7 +794,7 @@ const templates = {
   ],
 
   PolyFillRectangle: [
-    function(drawable, gc, coords) { // x1, y1, w1, h1, x2, y2, w2, h2...
+    function(drawable: number, gc: number, coords: []) { // x1, y1, w1, h1, x2, y2, w2, h2...
       let format = 'CxSLL'
       const numrects4bytes = coords.length / 2
       const args = [70, 3 + numrects4bytes, drawable, gc]
@@ -822,7 +807,7 @@ const templates = {
   ],
 
   PolyFillArc: [
-    function(drawable, gc, coords) { // x1, y1, w1, h1, a11, a12, ...
+    function(drawable: number, gc: number, coords: []) { // x1, y1, w1, h1, a11, a12, ...
       let format = 'CxSLL'
       const numrects4bytes = coords.length / 2
       const args = [71, 3 + numrects4bytes, drawable, gc]
@@ -836,7 +821,7 @@ const templates = {
 
   PutImage: [
     // format:  0 - Bitmap, 1 - XYPixmap, 2 - ZPixmap
-    function(format, drawable, gc, width, height, dstX, dstY, leftPad, depth, data) {
+    function(format: 0 | 1 | 2, drawable: number, gc: number, width: number, height: number, dstX: number, dstY: number, leftPad: number, depth: number, data: Buffer) {
       const padded = padded_length(data.length)
       const reqLen = 6 + padded / 4 // (length + 3) >> 2 ???
       const padLength = padded - data.length
@@ -849,10 +834,10 @@ const templates = {
   ],
 
   GetImage: [
-    function(format, drawable, x, y, width, height, planeMask) {
+    function(format: 0 | 1 | 2, drawable: number, x: number, y: number, width: number, height: number, planeMask: number) {
       return ['CCSLssSSL', [73, format, 5, drawable, x, y, width, height, planeMask]]
     },
-    function(buf, depth) {
+    function(buf: Buffer, depth: number) {
       const visualId = buf.unpack('L')[0]
       return {
         depth: depth,
@@ -863,11 +848,11 @@ const templates = {
   ],
 
   PolyText8: [
-    function(drawable, gc, x, y, items) {
+    function(drawable: number, gc: number, x: number, y: number, items: string[]) {
       let format = 'CxSLLss'
       const numItems = items.length
       let reqLen = 16
-      const args = [74, 0, drawable, gc, x, y]
+      const args: (number | string)[] = [74, 0, drawable, gc, x, y]
       for (var i = 0; i < numItems; ++i) {
         const it = items[i]
         if (typeof it == 'string') {
@@ -896,7 +881,7 @@ const templates = {
 
   CreateColormap:
     [
-      function(cmid, wid, vid, alloc) {
+      function(cmid: number, wid: number, vid: number, alloc: number) {
         return ['CCSLLL', [78, alloc, 4, cmid, wid, vid]]
       }
     ],
@@ -904,39 +889,38 @@ const templates = {
   AllocColor: [
     ['CxSLSSSxx', [84, 4]], // params: colormap, red, green, blue
 
-    function(buf) {
+    function(buf: Buffer) {
       const res = buf.unpack('SSSxL')
-      const color = {}
-      color.red = res[0]
-      color.blue = res[1]
-      color.green = res[2]
-      color.pixel = res[3] >> 8 // it looks like 3 first bytes contain RGB value in response
-      return color
+      return {
+        red: res[0],
+        blue: res[1],
+        green: res[2],
+        pixel: res[3] >> 8 // it looks like 3 first bytes contain RGB value in response
+      }
     }
   ],
 
   QueryExtension: [
-    function(name) {
+    function(name: string) {
       const padded = padded_string(name)
       return ['CxSSxxa', [98, 2 + padded.length / 4, name.length, padded]]
     },
 
-    function(buf) {
+    function(buf: Buffer) {
       const res = buf.unpack('CCCC')
-      const ext = {}
-      ext.present = res[0]
-      ext.majorOpcode = res[1]
-      ext.firstEvent = res[2]
-      ext.firstError = res[3]
-      return ext
+      return {
+        present: res[0],
+        majorOpcode: res[1],
+        firstEvent: res[2],
+        firstError: res[3]
+      }
     }
-
   ],
 
   ListExtensions: [
     ['CxS', [99, 1]],
 
-    function(buf) {
+    function(buf: Buffer) {
       // TODO: move to buffer.unpackStringList
       const res = []
       let off = 24
@@ -957,10 +941,10 @@ const templates = {
   ],
 
   GetKeyboardMapping: [
-    function(startCode, num) {
+    function(startCode: number, num: number) {
       return ['CxSCCxx', [101, 2, startCode, num]]
     },
-    function(buff, listLength) {
+    function(buff: Buffer, listLength: number) {
       const res = []
       let format = ''
       for (let i = 0; i < listLength; ++i)
@@ -973,48 +957,48 @@ const templates = {
 
   // todo: move up to keep reque
   GetGeometry: [
-    function(drawable) {
+    function(drawable: number) {
       return ['CxSL', [14, 2, drawable]]
     },
-    function(buff, depth) {
+    function(buff: Buffer, depth: number) {
       const res = buff.unpack('LssSSSx')
-      const ext = {}
-      ext.windowid = res[0]
-      ext.xPos = res[1]
-      ext.yPos = res[2]
-      ext.width = res[3]
-      ext.height = res[4]
-      ext.borderWidth = res[5]
-      ext.depth = depth
-      return ext
+      return {
+        windowid: res[0],
+        xPos: res[1],
+        yPos: res[2],
+        width: res[3],
+        height: res[4],
+        borderWidth: res[5],
+        depth
+      }
     }
   ],
 
   KillClient: [
-    function(resource) {
+    function(resource: number) {
       return ['CxSL', [113, 2, resource]]
     }
   ],
 
+  //@ts-ignore
+  KillKlient: this.KillClient,
+
   SetScreenSaver: [
-    function(timeout, interval, preferBlanking, allowExposures) {
+    function(timeout: number, interval: number, preferBlanking: number, allowExposures: number) {
       return ['CxSssCCxx', [107, 3, timeout, interval, preferBlanking, allowExposures]]
     }
   ],
 
   Bell: [
-    function(percent) {
+    // FIXME param not used?
+    function(percent: number) {
       return ['CxCs', [108, 1]]
     }
   ],
 
   ForceScreenSaver: [
-    function(activate) {
+    function(activate: number) {
       return ['CCS', [115, activate ? 1 : 0, 1]]
     }
   ]
 }
-
-templates.KillKlient = templates.KillClient
-
-module.exports = templates

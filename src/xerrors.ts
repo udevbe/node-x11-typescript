@@ -1,5 +1,5 @@
 // TODO enum?
-export interface XErrors {
+export type XErrorCodes = {
   1: 'Bad request',
   2: 'Bad param value',
   3: 'Bad window',
@@ -19,7 +19,7 @@ export interface XErrors {
   17: 'Bad implementation'
 }
 
-export const xErrors: XErrors = {
+export const xErrors: XErrorCodes = {
   1: 'Bad request',
   2: 'Bad param value',
   3: 'Bad window',

@@ -1,14 +1,16 @@
 import getAuthString from './auth'
 import { PackStream } from './unpackstream'
+import type { XCallback, XConnectionOptions, XDisplay, XScreen, XVisual } from './xcore'
 import { padded_length } from './xutil'
 
-function readVisuals(bl, visuals: XVisual[], n_visuals: number, cb: () => void) {
+function readVisuals(bl: PackStream, visuals: { [key: string]: XVisual }, n_visuals: number, cb: () => void) {
   if (n_visuals == 0) {
     cb()
     return
   }
 
-  const visual: XVisual = {}
+  const visual = {} as XVisual
+  // @ts-ignore
   bl.unpackTo(visual,
     [
       'L vid',
@@ -21,7 +23,7 @@ function readVisuals(bl, visuals: XVisual[], n_visuals: number, cb: () => void) 
       'xxxx'
     ],
     () => {
-      const vid: number = visual.vid
+      const vid: number = visual.vid as number
       // delete visual.vid;
       visuals[vid] = visual
       if (Object.keys(visuals).length == n_visuals)
@@ -31,9 +33,9 @@ function readVisuals(bl, visuals: XVisual[], n_visuals: number, cb: () => void) 
     })
 }
 
-function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady) {
+function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady: XCallback<XDisplay>) {
   let numParsedDepths = 0
-  const readDepths = (bl: PackStream, display: XDisplay, depths: XVisual[], n_depths: number, cb) => {
+  const readDepths = (bl: PackStream, display: XDisplay, depths: { [key: string]: { [key: string]: XVisual } }, n_depths: number, cb: () => void) => {
     if (n_depths == 0) {
       cb()
       return
@@ -42,16 +44,16 @@ function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady) {
     bl.unpack('CxSxxxx', res => {
       const dep = res[0]
       const n_visuals = res[1]
-      const visuals: XVisual = {}
+      const visuals: { [key: string]: XVisual } = {}
       readVisuals(bl, visuals, n_visuals, () => {
-        // if (dep in depths) {
-        //   for (let visual in visuals) {
-        // FIXME this line doesn't make sense
-        //     depths[dep][visual] = visuals[visual]
-        //   }
-        // } else {
+        if (dep in depths) {
+          for (let visual in visuals) {
+            //FIXME this line doesn't make sense
+            depths[dep][visual] = visuals[visual]
+          }
+        } else {
           depths[dep] = visuals
-        // }
+        }
         numParsedDepths++
         if (numParsedDepths == n_depths)
           cb()
@@ -63,8 +65,9 @@ function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady) {
 
   // for (i=0; i < display.screen_num; ++i)
   {
-    const scr: XScreen = {}
-    bl.unpackTo(scr,
+    const scr = {} as XScreen
+    // FIXME root_depth twice?
+    bl.unpackTo(scr as Omit<XScreen, 'depths'>,
       [
         'L root',
         'L default_colormap',
@@ -85,11 +88,12 @@ function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady) {
       ],
       () => {
         const depths = {}
-        readDepths(bl, display, depths, scr.num_depths, () => {
+
+        readDepths(bl, display, depths, scr.num_depths as number, () => {
 
           scr.depths = depths
           delete scr.num_depths
-          display.screen.push(scr)
+          display.screen.push(scr as XScreen)
 
           if (display.screen.length == display.screen_num) {
             delete display.screen_num
@@ -103,7 +107,7 @@ function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady) {
   }
 }
 
-export function readServerHello(bl: PackStream, cb: (err: Error, display?: XDisplay) => void) {
+export function readServerHello(bl: PackStream, cb: XCallback<XDisplay, Error>) {
   bl.unpack('C', (res: number[]) => {
     if (res[0] == 0) {
       // conection time error
@@ -118,10 +122,9 @@ export function readServerHello(bl: PackStream, cb: (err: Error, display?: XDisp
       // TODO: api to close source stream via attached unpackstream
       return
     }
-
-    const display = {}
+    const display = {} as XDisplay
     bl.unpackTo(
-      display,
+      display as Omit<XDisplay, 'screen' | 'vendor' | 'format' | 'client'>,
       [
         'x',
         'S major',
@@ -149,7 +152,7 @@ export function readServerHello(bl: PackStream, cb: (err: Error, display?: XDisp
 
         // setup data to generate resource id
         // TODO: cleaunup code here
-        const mask = display.resource_mask
+        const mask = display.resource_mask as number
         display.rsrc_shift = 0
         while (!((mask >> display.rsrc_shift) & 1))
           display.rsrc_shift++
@@ -159,12 +162,13 @@ export function readServerHello(bl: PackStream, cb: (err: Error, display?: XDisp
           display.vendor = vendor.toString().substr(0, display.vlen) // utf8 by default?
 
           display.format = {}
-          for (let i = 0; i < display.format_num; ++i) {
+          for (let i = 0; i < (display.format_num as number); ++i) {
             bl.unpack('CCCxxxxx', fmt => {
               const depth = fmt[0]
-              display.format[depth] = {}
-              display.format[depth].bits_per_pixel = fmt[1]
-              display.format[depth].scanline_pad = fmt[2]
+              display.format[depth] = {
+                bits_per_pixel: fmt[1],
+                scanline_pad: fmt[2]
+              }
               if (Object.keys(display.format).length == display.format_num) {
                 delete display.format_num
                 display.screen = []
@@ -190,7 +194,7 @@ function getByteOrder(): number {
 
 // TODO give options type of connection options
 // TODO give stream type of PackStream from unpackstream file
-export function writeClientHello(stream: PackStream, displayNum: string, authHost: string, socketFamily: 'IPv4' | 'IPv6', options: XConnectionOptions): void {
+export function writeClientHello(stream: PackStream, displayNum: string, authHost: string, socketFamily: 'IPv4' | 'IPv6' | undefined, options: XConnectionOptions): void {
   getAuthString(displayNum, authHost, socketFamily, (err, cookie) => {
     if (err) {
       throw err
@@ -216,6 +220,3 @@ export function writeClientHello(stream: PackStream, displayNum: string, authHos
     stream.flush()
   }, options)
 }
-
-export { readServerHello }
-export { writeClientHello }

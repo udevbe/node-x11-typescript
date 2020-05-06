@@ -1,18 +1,21 @@
-import core from './xcore'
 import { eventMask as em } from './eventmask'
 
-export const createClient = core.createClient
+export { createClient } from './xcore'
 export { em as eventMask }
 
 Object.defineProperty(module.exports, 'keySyms', {
   enumerable: true,
-  get: function() { return require('./keysyms'); }
-});
+  get: function() {
+    return require('./keysyms')
+  }
+})
 
 Object.defineProperty(module.exports, 'gcFunction', {
   enumerable: true,
-  get: function() { return require('./gcfunction'); }
-});
+  get: function() {
+    return require('./gcfunction')
+  }
+})
 
 //TODO:
 // keepe everything in namespace for consistensy (eventMask, keySyms, class, destination ...

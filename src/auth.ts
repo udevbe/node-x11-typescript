@@ -1,10 +1,11 @@
 // TODO: differentiate between auth types (i.e., MIT-MAGIC-COOKIE-1 and XDM-AUTHORIZATION-1)
 // and choose the best based on the algorithm in libXau's XauGetBestAuthByAddr
 
-import fs from 'fs'
+import * as fs from 'fs'
 import { homedir as osHomedir } from 'os'
-import path from 'path'
+import * as path from 'path'
 import './unpackbuffer'
+import type { XConnectionOptions } from './xcore'
 import ErrnoException = NodeJS.ErrnoException
 
 // TODO use enum here?
@@ -90,8 +91,8 @@ function readXauthority(cb: (err: ErrnoException | null, data?: Buffer) => void,
     if (err.code == 'ENOENT') {
       // TODO we could solve this with recursion instead of c/p the readFile logic here from before
       // Xming/windows uses %HOME%/Xauthority ( .Xauthority with no dot ) - try with this name
-      const winFilename = options ? options.xAuthority : process.env.XAUTHORITY || path.join(homedir, 'Xauthority')
-      fs.readFile(winFilename, function(err, data) {
+      const winFilename = options?.xAuthority ?? process.env.XAUTHORITY ?? path.join(homedir, 'Xauthority')
+      fs.readFile(winFilename, (err: ErrnoException | null, data?: Buffer) => {
         if (!err)
           return cb(null, data)
         if (err.code == 'ENOENT') {
@@ -107,7 +108,7 @@ function readXauthority(cb: (err: ErrnoException | null, data?: Buffer) => void,
 }
 
 // TODO give options type of connection options
-export default function(display: string, host: string, socketFamily: 'IPv4' | 'IPv6', cb: (err: ErrnoException | null, cookie?: Pick<Cookie, 'authName'> & Pick<Cookie, 'authData'> & Partial<Cookie>) => void, options: XConnectionOptions): void {
+export default function(display: string, host: string, socketFamily: 'IPv4' | 'IPv6' | undefined, cb: (err: ErrnoException | null, cookie?: Pick<Cookie, 'authName'> & Pick<Cookie, 'authData'> & Partial<Cookie>) => void, options: XConnectionOptions): void {
   let family: keyof ConnectionTypeToName
   if (socketFamily === 'IPv4') {
     family = 0 // Internet
