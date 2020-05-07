@@ -51,7 +51,7 @@ describe('AllowEvents', () => {
   })
 
   function warpPointer(wid, x, y, cb) {
-    X.QueryPointer(wid, (err, old_pointer) => {
+    X.QueryPointer(wid, (err, oldPointer) => {
       if (err) {
         return cb(err)
       }
@@ -65,16 +65,16 @@ describe('AllowEvents', () => {
         x,
         y)
 
-      X.QueryPointer(wid, (err, new_pointer) => {
+      X.QueryPointer(wid, (err, newPointer) => {
         if (err) {
           return cb(err)
         }
 
         cb(undefined, {
-          old_x: old_pointer.childX,
-          old_y: old_pointer.childY,
-          new_x: new_pointer.childX,
-          new_y: new_pointer.childY
+          old_x: oldPointer.childX,
+          old_y: oldPointer.childY,
+          new_x: newPointer.childX,
+          new_y: newPointer.childY
         })
       })
     })

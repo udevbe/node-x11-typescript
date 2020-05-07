@@ -3,8 +3,8 @@ import { PackStream } from './unpackstream'
 import type { XCallback, XConnectionOptions, XDisplay, XScreen, XVisual } from './xcore'
 import { padded_length } from './xutil'
 
-function readVisuals(bl: PackStream, visuals: { [key: string]: XVisual }, n_visuals: number, cb: () => void) {
-  if (n_visuals == 0) {
+function readVisuals(bl: PackStream, visuals: { [key: string]: XVisual }, nVisuals: number, cb: () => void) {
+  if (nVisuals === 0) {
     cb()
     return
   }
@@ -26,39 +26,43 @@ function readVisuals(bl: PackStream, visuals: { [key: string]: XVisual }, n_visu
       const vid: number = visual.vid as number
       // delete visual.vid;
       visuals[vid] = visual
-      if (Object.keys(visuals).length == n_visuals)
+      if (Object.keys(visuals).length === nVisuals) {
         cb()
-      else
-        readVisuals(bl, visuals, n_visuals, cb)
+      }
+      else {
+        readVisuals(bl, visuals, nVisuals, cb)
+      }
     })
 }
 
 function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady: XCallback<XDisplay>) {
   let numParsedDepths = 0
-  const readDepths = (bl: PackStream, display: XDisplay, depths: { [key: string]: { [key: string]: XVisual } }, n_depths: number, cb: () => void) => {
-    if (n_depths == 0) {
+  const readDepths = (bl: PackStream, display: XDisplay, depths: { [key: string]: { [key: string]: XVisual } }, nDepths: number, cb: () => void) => {
+    if (nDepths === 0) {
       cb()
       return
     }
 
     bl.unpack('CxSxxxx', res => {
       const dep = res[0]
-      const n_visuals = res[1]
+      const nVisuals = res[1]
       const visuals: { [key: string]: XVisual } = {}
-      readVisuals(bl, visuals, n_visuals, () => {
+      readVisuals(bl, visuals, nVisuals, () => {
         if (dep in depths) {
           for (let visual in visuals) {
-            //FIXME this line doesn't make sense
+            // FIXME this line doesn't make sense
             depths[dep][visual] = visuals[visual]
           }
         } else {
           depths[dep] = visuals
         }
         numParsedDepths++
-        if (numParsedDepths == n_depths)
+        if (numParsedDepths === nDepths) {
           cb()
-        else
-          readDepths(bl, display, depths, n_depths, cb)
+        }
+        else {
+          readDepths(bl, display, depths, nDepths, cb)
+        }
       })
     })
   }
@@ -95,7 +99,7 @@ function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady: XCallbac
           delete scr.num_depths
           display.screen.push(scr as XScreen)
 
-          if (display.screen.length == display.screen_num) {
+          if (display.screen.length === display.screen_num) {
             delete display.screen_num
             cbDisplayReady(null, display)
             return
@@ -109,7 +113,7 @@ function readScreens(bl: PackStream, display: XDisplay, cbDisplayReady: XCallbac
 
 export function readServerHello(bl: PackStream, cb: XCallback<XDisplay, Error>) {
   bl.unpack('C', (res: number[]) => {
-    if (res[0] == 0) {
+    if (res[0] === 0) {
       // conection time error
       // unpack error
       bl.unpack('Cxxxxxx', rlen => {
@@ -154,8 +158,9 @@ export function readServerHello(bl: PackStream, cb: XCallback<XDisplay, Error>) 
         // TODO: cleaunup code here
         const mask = display.resource_mask as number
         display.rsrc_shift = 0
-        while (!((mask >> display.rsrc_shift) & 1))
+        while (!((mask >> display.rsrc_shift) & 1)) {
           display.rsrc_shift++
+        }
         display.rsrc_id = 0
 
         bl.get(pvlen, vendor => {
@@ -169,7 +174,7 @@ export function readServerHello(bl: PackStream, cb: XCallback<XDisplay, Error>) 
                 bits_per_pixel: fmt[1],
                 scanline_pad: fmt[2]
               }
-              if (Object.keys(display.format).length == display.format_num) {
+              if (Object.keys(display.format).length === display.format_num) {
                 delete display.format_num
                 display.screen = []
                 readScreens(bl, display, cb)
@@ -202,15 +207,15 @@ export function writeClientHello(stream: PackStream, displayNum: string, authHos
     if (!cookie) {
       throw new Error('No Cookie found :(')
     }
-    const byte_order = getByteOrder()
-    const protocol_major = 11 // TODO: config? env?
-    const protocol_minor = 0
+    const byteOrder = getByteOrder()
+    const protocolMajor = 11 // TODO: config? env?
+    const protocolMinor = 0
     stream.pack(
       'CxSSSSxxpp',
       [
-        byte_order,
-        protocol_major,
-        protocol_minor,
+        byteOrder,
+        protocolMajor,
+        protocolMinor,
         cookie.authName.length,
         cookie.authData.length,
         cookie.authName,

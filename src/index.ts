@@ -17,7 +17,7 @@ Object.defineProperty(module.exports, 'gcFunction', {
   }
 })
 
-//TODO:
+// TODO:
 // keepe everything in namespace for consistensy (eventMask, keySyms, class, destination ...
 // or put most used constants to top namespace? (currently class and destination in top)
 

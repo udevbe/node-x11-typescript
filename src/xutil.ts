@@ -17,13 +17,15 @@ export function padded_length(len?: number): number {
 // TODO: make it return buffer?
 // str += is slow
 export function padded_string(str: string) {
-  if (str.length == 0)
+  if (str.length === 0) {
     return ''
+  }
 
   const pad = padded_length(str.length) - str.length
   let res = str
-  for (let i = 0; i < pad; ++i)
+  for (let i = 0; i < pad; ++i) {
     res += String.fromCharCode(0)
+  }
 
   return res
 }

@@ -9,13 +9,14 @@ declare global {
 }
 
 Buffer.prototype.unpack = function(format: string, offset: number = 0): number[] {
-  if (!offset)
+  if (!offset) {
     offset = 0
+  }
 
   const data: number[] = []
-  let current_arg: number = 0
-  while (current_arg < format.length) {
-    const arg = format[current_arg]
+  let currentArg: number = 0
+  while (currentArg < format.length) {
+    const arg = format[currentArg]
     switch (arg) {
       case 'C':
         data.push(this.readUInt8(offset++))
@@ -47,7 +48,7 @@ Buffer.prototype.unpack = function(format: string, offset: number = 0): number[]
         offset++
         break
     }
-    current_arg++
+    currentArg++
   }
   return data
 }
@@ -55,7 +56,8 @@ Buffer.prototype.unpack = function(format: string, offset: number = 0): number[]
 Buffer.prototype.unpackString = function(n: number, offset: number): string {
   let res = ''
   const end = offset + n
-  while (offset < end)
+  while (offset < end) {
     res += String.fromCharCode(this[offset++])
+  }
   return res
 }

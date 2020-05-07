@@ -63,7 +63,7 @@ function parseXauth(buf: Buffer): Cookie[] {
     cookieProperties.forEach((property) => {
       const length = buf.unpack('n', offset)[0]
       offset += 2
-      if (cookie.type === 0 && property == 'address') { // Internet
+      if (cookie.type === 0 && property === 'address') { // Internet
         // 4 bytes of ip addess, convert to w.x.y.z string
         cookie.address = [
           buf[offset],
@@ -86,16 +86,18 @@ function parseXauth(buf: Buffer): Cookie[] {
 function readXauthority(cb: (err: ErrnoException | null, data?: Buffer) => void, options: XConnectionOptions): void {
   const nixFilename = options && options.xAuthority ? options.xAuthority : process.env.XAUTHORITY || path.join(homedir, '.Xauthority')
   fs.readFile(nixFilename, function(err, data) {
-    if (!err)
+    if (!err) {
       return cb(null, data)
-    if (err.code == 'ENOENT') {
+    }
+    if (err.code === 'ENOENT') {
       // TODO we could solve this with recursion instead of c/p the readFile logic here from before
       // Xming/windows uses %HOME%/Xauthority ( .Xauthority with no dot ) - try with this name
       const winFilename = options?.xAuthority ?? process.env.XAUTHORITY ?? path.join(homedir, 'Xauthority')
       fs.readFile(winFilename, (err: ErrnoException | null, data?: Buffer) => {
-        if (!err)
+        if (!err) {
           return cb(null, data)
-        if (err.code == 'ENOENT') {
+        }
+        if (err.code === 'ENOENT') {
           cb(null, undefined)
         } else {
           cb(err)
@@ -118,7 +120,7 @@ export default function(display: string, host: string, socketFamily: 'IPv4' | 'I
     family = 256 // Local
   }
 
-  readXauthority(function(err, data) {
+  readXauthority((err, data) => {
     if (err) return cb(err)
 
     if (!data) {
@@ -131,8 +133,9 @@ export default function(display: string, host: string, socketFamily: 'IPv4' | 'I
     for (let cookieNum in auth) {
       const cookie = auth[cookieNum]
       if ((connectionTypeToName[cookie.type] === 'Wild' || (cookie.type === family && cookie.address === host)) &&
-        (cookie.display.length === 0 || cookie.display === display))
+        (cookie.display.length === 0 || cookie.display === display)) {
         return cb(null, cookie)
+      }
     }
     // If no cookie is found, proceed without authentication
     cb(null, {

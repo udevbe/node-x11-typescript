@@ -14,7 +14,7 @@ enum ProtocolFormat {
   a = 'a'
 }
 
-const argument_length: { [key: string]: number } = {
+const argumentLength: { [key: string]: number } = {
   [ProtocolFormat.C]: 1,
   [ProtocolFormat.S]: 2,
   [ProtocolFormat.s]: 2,
@@ -29,22 +29,23 @@ interface ReadRequest {
 
 class ReadFormatRequest implements ReadRequest {
   private readonly format: string
-  private current_arg: number
+  private currentArg: number
   private readonly data: number[]
   private readonly callback?: (data: number[]) => void
 
   constructor(format: string, callback?: (data: number[]) => void) {
     this.format = format
-    this.current_arg = 0
+    this.currentArg = 0
     this.data = []
     this.callback = callback
   }
 
   execute(bufferlist: PackStream): boolean {
-    while (this.current_arg < this.format.length) {
-      const arg = this.format[this.current_arg]
-      if (bufferlist.length < argument_length[arg])
-        return false // need to wait for more data to prcess this argument
+    while (this.currentArg < this.format.length) {
+      const arg = this.format[this.currentArg]
+      if (bufferlist.length < argumentLength[arg]) {
+        return false
+      } // need to wait for more data to process this argument
 
       // TODO: measure Buffer.readIntXXX performance and use them if faster
       // note: 4 and 2-byte values may cross chunk border & split. need to handle this correctly
@@ -76,7 +77,7 @@ class ReadFormatRequest implements ReadRequest {
           break
         }
       }
-      this.current_arg++
+      this.currentArg++
     }
     this.callback?.(this.data)
     return true
@@ -87,23 +88,24 @@ class ReadFixedRequest implements ReadRequest {
   private readonly length: number
   private readonly callback: (data: Buffer) => void
   private readonly data: Buffer
-  private received_bytes: number
+  private receivedBytes: number
 
   constructor(length: number, callback: (data: Buffer) => void) {
     this.length = length
     this.callback = callback
     this.data = Buffer.alloc(length)
-    this.received_bytes = 0
+    this.receivedBytes = 0
   }
 
   execute(bufferlist: PackStream): boolean {
     // TODO: this is a brute force version
     // replace with Buffer.slice calls
-    const to_receive = this.length - this.received_bytes
-    for (let i = 0; i < to_receive; ++i) {
-      if (bufferlist.length == 0)
+    const toReceive = this.length - this.receivedBytes
+    for (let i = 0; i < toReceive; ++i) {
+      if (bufferlist.length === 0) {
         return false
-      this.data[this.received_bytes++] = bufferlist.getbyte()
+      }
+      this.data[this.receivedBytes++] = bufferlist.getbyte()
     }
     this.callback(this.data)
     return true
@@ -115,9 +117,9 @@ export class PackStream extends EventEmitter {
 
   private readonly readlist: Buffer[]
   private offset: number
-  private read_queue: ReadRequest[]
-  write_queue: Buffer[]
-  private write_length: number
+  private readQueue: ReadRequest[]
+  writeQueue: Buffer[]
+  private writeLength: number
   private resumed: boolean
 
   constructor() {
@@ -125,9 +127,9 @@ export class PackStream extends EventEmitter {
     this.readlist = []
     this.length = 0
     this.offset = 0
-    this.read_queue = []
-    this.write_queue = []
-    this.write_length = 0
+    this.readQueue = []
+    this.writeQueue = []
+    this.writeLength = 0
     this.resumed = false
   }
 
@@ -145,32 +147,33 @@ export class PackStream extends EventEmitter {
   }
 
   unpack(format: string, callback?: (data: number[]) => void): void {
-    this.read_queue.push(new ReadFormatRequest(format, callback))
+    this.readQueue.push(new ReadFormatRequest(format, callback))
     this.resume()
   }
 
-  unpackTo(destination: { [key: string]: number }, names_formats: string[], callback: (arg: { [key: string]: number }) => void) {
+  unpackTo(destination: { [key: string]: number }, namesFormats: string[], callback: (arg: { [key: string]: number }) => void) {
     const names: string[] = []
     let format: string = ''
 
-    for (let i = 0; i < names_formats.length; ++i) {
+    for (let i = 0; i < namesFormats.length; ++i) {
       let off = 0
-      while (off < names_formats[i].length && names_formats[i][off] === ProtocolFormat.x) {
+      while (off < namesFormats[i].length && namesFormats[i][off] === ProtocolFormat.x) {
         format += ProtocolFormat.x
         off++
       }
 
-      if (off < names_formats[i].length) {
-        const formatName = names_formats[i][off] as keyof typeof ProtocolFormat
+      if (off < namesFormats[i].length) {
+        const formatName = namesFormats[i][off] as keyof typeof ProtocolFormat
         format += formatName
-        const name = names_formats[i].substr(off + 2)
+        const name = namesFormats[i].substr(off + 2)
         names.push(name)
       }
     }
 
     this.unpack(format, function(data) {
-      if (data.length != names.length)
-        throw 'Number of arguments mismatch, ' + names.length + ' fields and ' + data.length + ' arguments'
+      if (data.length !== names.length) {
+        throw new Error('Number of arguments mismatch, ' + names.length + ' fields and ' + data.length + ' arguments')
+      }
       for (let fld = 0; fld < data.length; ++fld) {
         destination[names[fld]] = data[fld]
       }
@@ -179,19 +182,21 @@ export class PackStream extends EventEmitter {
   }
 
   get(length: number, callback: (data: Buffer) => void) {
-    this.read_queue.push(new ReadFixedRequest(length, callback))
+    this.readQueue.push(new ReadFixedRequest(length, callback))
     this.resume()
   }
 
   resume() {
-    if (this.resumed)
+    if (this.resumed) {
       return
+    }
     this.resumed = true
     // process all read requests until enough data in the buffer
-    while (this.read_queue[0].execute(this)) {
-      this.read_queue.shift()
-      if (this.read_queue.length == 0)
+    while (this.readQueue[0].execute(this)) {
+      this.readQueue.shift()
+      if (this.readQueue.length === 0) {
         return
+      }
     }
     this.resumed = false
   }
@@ -221,7 +226,7 @@ export class PackStream extends EventEmitter {
     let arg = 0
     for (let i = 0; i < format.length; ++i) {
       const f = format[i]
-      if (f == ProtocolFormat.x) {
+      if (f === ProtocolFormat.x) {
         packetlength++
       } else if (f === ProtocolFormat.p) {
         packetlength += padded_length(args[arg++].length)
@@ -230,7 +235,7 @@ export class PackStream extends EventEmitter {
         arg++
       } else {
         // this is a fixed-length format, get length from argument_length table
-        packetlength += argument_length[f]
+        packetlength += argumentLength[f]
         arg++
       }
     }
@@ -295,16 +300,18 @@ export class PackStream extends EventEmitter {
           const len = padded_length(str.length)
           // TODO: buffer.write could be faster
           let c = 0
-          for (; c < str.length; ++c)
+          for (; c < str.length; ++c) {
             buf[offset++] = str.charCodeAt(c)
-          for (; c < len; ++c)
+          }
+          for (; c < len; ++c) {
             buf[offset++] = 0
+          }
           break
         }
       }
     }
-    this.write_queue.push(buf)
-    this.write_length += buf.length
+    this.writeQueue.push(buf)
+    this.writeLength += buf.length
     return this
   }
 
@@ -314,11 +321,11 @@ export class PackStream extends EventEmitter {
 
     // TODO: check write result
     // pause/resume streaming
-    for (let i = 0; i < this.write_queue.length; ++i) {
-      //stream.write(this.write_queue[i])
-      this.emit('data', this.write_queue[i])
+    for (let i = 0; i < this.writeQueue.length; ++i) {
+      // stream.write(this.write_queue[i])
+      this.emit('data', this.writeQueue[i])
     }
-    this.write_queue = []
-    this.write_length = 0
+    this.writeQueue = []
+    this.writeLength = 0
   }
 }

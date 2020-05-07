@@ -220,16 +220,18 @@ function packValueMask<T extends keyof ValueMask>(reqname: T, values: Partial<{ 
   const reqValueMask = valueMask[reqname]
   const reqValueMaskName = valueMaskName[reqname]
 
-  if (!reqValueMask)
+  if (!reqValueMask) {
     throw new Error(reqname + ': no value mask description')
+  }
 
   for (let value in values) {
     // @ts-ignore
     const v: ValueMaskValue | undefined = reqValueMask[value]
     if (v) {
       const valueBit = v.mask
-      if (!valueBit)
+      if (!valueBit) {
         throw new Error(reqname + ': incorrect value param ' + value)
+      }
       masksList.push(valueBit)
       bitmask |= valueBit
     }
@@ -412,8 +414,9 @@ export const coreRequests: ProtocolTemplates = {
         children: []
       }
 
-      for (let i = 0; i < res[2]; ++i)
+      for (let i = 0; i < res[2]; ++i) {
         tree.children.push(buf.unpack('L', 24 + i * 4)[0])
+      }
       return tree
     }
   ],
@@ -425,35 +428,35 @@ export const coreRequests: ProtocolTemplates = {
       return ['CCSSxxa', [16, returnOnlyIfExist ? 1 : 0, 2 + padded.length / 4, value.length, padded]]
     },
 
-    function(this: XClient, buf: Buffer, seq_num: number) {
+    function(this: XClient, buf: Buffer, seqNum: number) {
       const res = buf.unpack('L')[0]
-      const pending_atom = this.pending_atoms[seq_num]
-      if (!this.atoms[pending_atom]) {
-        this.atoms[pending_atom] = res
-        this.atom_names[res] = pending_atom
+      const pendingAtom = this.pendingAtoms[seqNum]
+      if (!this.atoms[pendingAtom]) {
+        this.atoms[pendingAtom] = res
+        this.atomNames[res] = pendingAtom
       }
 
-      delete this.pending_atoms[seq_num]
+      delete this.pendingAtoms[seqNum]
       return res
     }
   ],
 
   GetAtomName: [
     ['CxSL', [17, 2]],
-    function(this: XClient, buf: Buffer, seq_num: number) {
+    function(this: XClient, buf: Buffer, seqNum: number) {
       const nameLen = buf.unpack('S')[0]
       // Atom value starting from 24th byte in the buffer
       const name = buf.unpackString(nameLen, 24)
-      const pending_atom: string = this.pending_atoms[seq_num]
-      if (!this.atoms[pending_atom]) {
+      const pendingAtom: string = this.pendingAtoms[seqNum]
+      if (!this.atoms[pendingAtom]) {
         // FIXME this is a bug
         // @ts-ignore
-        this.atom_names[pending_atom] = name
+        this.atomNames[pendingAtom] = name
         // @ts-ignore
-        this.atoms[name] = pending_atom
+        this.atoms[name] = pendingAtom
       }
 
-      delete this.pending_atoms[seq_num]
+      delete this.pendingAtoms[seqNum]
       return name
     }
   ],
@@ -461,13 +464,13 @@ export const coreRequests: ProtocolTemplates = {
   ChangeProperty: [
     // mode: 0 replace, 1 prepend, 2 append
     // format: 8/16/32
-    function(mode: 0 | 1 | 2, wid: number, atom_name: number, atom_type: number, units: 8 | 16 | 32, data: Buffer | string) {
+    function(mode: 0 | 1 | 2, wid: number, atomName: number, atomType: number, units: 8 | 16 | 32, data: Buffer | string) {
       const padded4 = (data.length + 3) >> 2
       const pad = Buffer.alloc((padded4 << 2) - data.length)
       const format = 'CCSLLLCxxxLaa'
       const requestLength = 6 + padded4
       const dataLenInFormatUnits = data.length / (units >> 3)
-      return [format, [18, mode, requestLength, wid, atom_name, atom_type, units, dataLenInFormatUnits, data, pad]]
+      return [format, [18, mode, requestLength, wid, atomName, atomType, units, dataLenInFormatUnits, data, pad]]
     }
   ],
 
@@ -505,7 +508,7 @@ export const coreRequests: ProtocolTemplates = {
       const atoms = []
       for (i = 0; i < n; ++i) {
         atoms.push(buf.unpack('L', 24 + 4 * i)[0])
-        //console.log([n, i, atoms]);
+        // console.log([n, i, atoms]);
       }
       return atoms
     }
@@ -674,8 +677,8 @@ export const coreRequests: ProtocolTemplates = {
 
   ListFonts: [
     function(pattern: string, max: number) {
-      const req_len = 2 + padded_length(pattern.length) / 4
-      return ['CxSSSp', [49, req_len, max, pattern.length, pattern]]
+      const reqLen = 2 + padded_length(pattern.length) / 4
+      return ['CxSSSp', [49, reqLen, max, pattern.length, pattern]]
     },
 
     function(buf: Buffer) {
@@ -685,12 +688,14 @@ export const coreRequests: ProtocolTemplates = {
       let off = 24
       while (off < buf.length) {
         let len = buf[off++]
-        if (len == 0)
+        if (len === 0) {
           break
+        }
         if (off + len > buf.length) {
           len = buf.length - off
-          if (len <= 0)
+          if (len <= 0) {
             break
+          }
         }
         res.push(buf.unpackString(len, off))
         off += len
@@ -853,26 +858,28 @@ export const coreRequests: ProtocolTemplates = {
       const numItems = items.length
       let reqLen = 16
       const args: (number | string)[] = [74, 0, drawable, gc, x, y]
-      for (var i = 0; i < numItems; ++i) {
+      for (let i = 0; i < numItems; ++i) {
         const it = items[i]
-        if (typeof it == 'string') {
-          if (it.length > 254) // TODO: split string in set of items
-            throw 'not supported yet'
+        if (typeof it === 'string') {
+          if (it.length > 254) { // TODO: split string in set of items
+            throw new Error('not supported yet')
+          }
           format += 'CCa'
           args.push(it.length)
           args.push(0) // delta???
           args.push(it)
           reqLen += 2 + it.length
         } else {
-          throw 'not supported yet'
+          throw new Error('not supported yet')
         }
       }
       const len4 = padded_length(reqLen) / 4
       const padLen = len4 * 4 - reqLen
       args[1] = len4 // set request length to calculated value
       let pad = ''
-      for (var i = 0; i < padLen; ++i)
+      for (let i = 0; i < padLen; ++i) {
         pad += String.fromCharCode(0)
+      }
       format += 'a'
       args.push(pad)
       return [format, args]
@@ -926,12 +933,14 @@ export const coreRequests: ProtocolTemplates = {
       let off = 24
       while (off < buf.length) {
         let len = buf[off++]
-        if (len == 0)
+        if (len === 0) {
           break
+        }
         if (off + len > buf.length) {
           len = buf.length - off
-          if (len <= 0)
+          if (len <= 0) {
             break
+          }
         }
         res.push(buf.unpackString(len, off))
         off += len
@@ -947,10 +956,12 @@ export const coreRequests: ProtocolTemplates = {
     function(buff: Buffer, listLength: number) {
       const res = []
       let format = ''
-      for (let i = 0; i < listLength; ++i)
+      for (let i = 0; i < listLength; ++i) {
         format += 'L'
-      for (let offset = 24; offset < buff.length - 4 * listLength; offset += 4 * listLength)
+      }
+      for (let offset = 24; offset < buff.length - 4 * listLength; offset += 4 * listLength) {
         res.push(buff.unpack(format, offset))
+      }
       return res
     }
   ],
@@ -980,7 +991,7 @@ export const coreRequests: ProtocolTemplates = {
     }
   ],
 
-  //@ts-ignore
+  // @ts-ignore
   KillKlient: this.KillClient,
 
   SetScreenSaver: [
