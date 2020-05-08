@@ -1,7 +1,7 @@
 import getAuthString from './auth'
 import { PackStream } from './unpackstream'
 import type { XCallback, XConnectionOptions, XDisplay, XScreen, XVisual } from './xcore'
-import { padded_length } from './xutil'
+import { paddedLength } from './xutil'
 
 function readVisuals(bl: PackStream, visuals: { [key: string]: XVisual }, nVisuals: number, cb: () => void) {
   if (nVisuals === 0) {
@@ -152,7 +152,7 @@ export function readServerHello(bl: PackStream, cb: XCallback<XDisplay, Error>) 
       ],
 
       () => {
-        const pvlen = padded_length(display.vlen)
+        const pvlen = paddedLength(display.vlen)
 
         // setup data to generate resource id
         // TODO: cleaunup code here

@@ -2,13 +2,27 @@
 // http://www.opensource.apple.com/source/X11server/X11server-106.7/kdrive/xorg-server-1.6.5-apple3/dix/protocol.txt
 
 import { ProtocolTemplates, XClient } from './xcore'
-import { padded_length, padded_string } from './xutil'
+import { paddedLength, padded_string } from './xutil'
 
 type ValueMaskValue = { format: string; mask: number }
 
-type ValueMask = {
+export type ValueMask = {
   CreateWindow: {
-    cursor: ValueMaskValue; backingPlanes: ValueMaskValue; overrideRedirect: ValueMaskValue; backingPixel: ValueMaskValue; bitGravity: ValueMaskValue; backgroundPixmap: ValueMaskValue; borderPixel: ValueMaskValue; borderPixmap: ValueMaskValue; saveUnder: ValueMaskValue; backgroundPixel: ValueMaskValue; doNotPropagateMask: ValueMaskValue; winGravity: ValueMaskValue; backingStore: ValueMaskValue; eventMask: ValueMaskValue; colormap: ValueMaskValue
+    cursor: ValueMaskValue;
+    backingPlanes: ValueMaskValue;
+    overrideRedirect: ValueMaskValue;
+    backingPixel: ValueMaskValue;
+    bitGravity: ValueMaskValue;
+    backgroundPixmap: ValueMaskValue;
+    borderPixel: ValueMaskValue;
+    borderPixmap: ValueMaskValue;
+    saveUnder: ValueMaskValue;
+    backgroundPixel: ValueMaskValue;
+    doNotPropagateMask: ValueMaskValue;
+    winGravity: ValueMaskValue;
+    backingStore: ValueMaskValue;
+    eventMask: ValueMaskValue;
+    colormap: ValueMaskValue
   }; CreateGC: {
     clipXOrigin: ValueMaskValue; joinStyle: ValueMaskValue; capStyle: ValueMaskValue; arcMode: ValueMaskValue; subwindowMode: ValueMaskValue; foreground: ValueMaskValue; graphicsExposures: ValueMaskValue; clipMask: ValueMaskValue; dashOffset: ValueMaskValue; lineWidth: ValueMaskValue; dashes: ValueMaskValue; lineStyle: ValueMaskValue; fillRule: ValueMaskValue; background: ValueMaskValue; function: ValueMaskValue; tileStippleYOrigin: ValueMaskValue; tile: ValueMaskValue; fillStyle: ValueMaskValue; stipple: ValueMaskValue; planeMask: ValueMaskValue; clipYOrigin: ValueMaskValue; tileStippleXOrigin: ValueMaskValue; font: ValueMaskValue
   };
@@ -543,7 +557,7 @@ export const coreRequests: ProtocolTemplates = {
   ],
 
   GrabPointer: [
-    function(wid: number, ownerEvents: number, mask: number, pointerMode: number, keybMode: number, confineTo: number, cursor: number, time: number) {
+    function(wid: number, ownerEvents: boolean, mask: number, pointerMode: number, keybMode: number, confineTo: number, cursor: number, time: number) {
       return ['CCSLSCCLLL', [26, ownerEvents, 6, wid, mask, pointerMode, keybMode,
         confineTo, cursor, time]]
     },
@@ -559,7 +573,7 @@ export const coreRequests: ProtocolTemplates = {
   ],
 
   GrabButton: [
-    function(wid: number, ownerEvents: number, mask: number, pointerMode: number, keybMode: number, confineTo: number, cursor: number, button: number, modifiers: number) {
+    function(wid: number, ownerEvents: boolean, mask: number, pointerMode: number, keybMode: number, confineTo: number, cursor: number, button: number, modifiers: number) {
       return ['CCSLSCCLLCxS', [28, ownerEvents, 6, wid, mask, pointerMode, keybMode, confineTo,
         cursor, button, modifiers]]
     }
@@ -630,7 +644,7 @@ export const coreRequests: ProtocolTemplates = {
         childX: res[4],
         childY: res[5],
         keyMask: res[6],
-        sameScreen: sameScreen
+        sameScreen
       }
     }
   ],
@@ -677,7 +691,7 @@ export const coreRequests: ProtocolTemplates = {
 
   ListFonts: [
     function(pattern: string, max: number) {
-      const reqLen = 2 + padded_length(pattern.length) / 4
+      const reqLen = 2 + paddedLength(pattern.length) / 4
       return ['CxSSSp', [49, reqLen, max, pattern.length, pattern]]
     },
 
@@ -827,7 +841,7 @@ export const coreRequests: ProtocolTemplates = {
   PutImage: [
     // format:  0 - Bitmap, 1 - XYPixmap, 2 - ZPixmap
     function(format: 0 | 1 | 2, drawable: number, gc: number, width: number, height: number, dstX: number, dstY: number, leftPad: number, depth: number, data: Buffer) {
-      const padded = padded_length(data.length)
+      const padded = paddedLength(data.length)
       const reqLen = 6 + padded / 4 // (length + 3) >> 2 ???
       const padLength = padded - data.length
       const pad = Buffer.alloc(padLength) // TODO: new pack format 'X' - skip amount of bytes supplied in numerical argument
@@ -873,7 +887,7 @@ export const coreRequests: ProtocolTemplates = {
           throw new Error('not supported yet')
         }
       }
-      const len4 = padded_length(reqLen) / 4
+      const len4 = paddedLength(reqLen) / 4
       const padLen = len4 * 4 - reqLen
       args[1] = len4 // set request length to calculated value
       let pad = ''

@@ -2,7 +2,7 @@ import { Buffer } from 'buffer'
 import { EventEmitter } from 'events'
 import * as net from 'net'
 import * as os from 'os'
-import { coreRequests } from './corereqs'
+import { coreRequests, ValueMask } from './corereqs'
 import type { BigRequest } from './ext/big-requests'
 import { readServerHello, writeClientHello } from './handshake'
 import { stdAtoms, StdAtoms } from './stdatoms'
@@ -189,7 +189,7 @@ export class XClient extends EventEmitter {
   })()
 
   private eventConsumers: { [key: number]: EventEmitter } = {} // maps window id to eventemitter TODO: bad name
-  private extraEventParsers: { [key: number]: XEventParser<XEvent> } = {}
+  extraEventParsers: { [key: number]: XEventParser<XEvent> } = {}
   private errorParsers: { [key: number]: XErrorParser } = {}
   private _extensions: { [key: string]: XExtension } = {}
   private _closing = false
@@ -197,7 +197,34 @@ export class XClient extends EventEmitter {
 
   pendingAtoms: { [key: number]: string } = {}
 
+  // core protocol
   QueryExtension?: <E extends XExtension>(extName: string, callback: XCallback<E, Error>) => void
+  CreateWindow?: (id: number,
+                  parentId: number,
+                  x: number,
+                  y: number,
+                  width: number,
+                  height: number,
+                  borderWidth?: number,
+                  depth?: number,
+                  _class?: number,
+                  visual?: number,
+                  values?: Partial<Exclude<{ [key in keyof ValueMask['CreateWindow']]: number }, 'id' | 'parentId' | 'x' | 'y' | 'width' | 'height' | 'borderWidth' | 'depth' | '_class' | 'visual'>>
+  ) => void
+  MapWindow?: (wid: number) => void
+  QueryPointer?: (wid: number, callback: XCallback<{
+    root: number,
+    child: number,
+    rootX: number,
+    rootY: number,
+    childX: number,
+    childY: number,
+    keyMask: number,
+    sameScreen: number
+  }>) => void
+  WarpPointer?: (srcWin: number, dstWin: number, srcX: number, srcY: number, srcWidth: number, srcHeight: number, dstX: number, dstY: number) => void
+  GrabPointer?: (wid: number, ownerEvents: boolean, mask: number, pointerMode: number, keybMode: number, confineTo: number, cursor: number, time: number) => void
+  AllowEvents?: (mode: number, ts: number) => void
 
   constructor(displayNum: string, screenNum: string, options: XConnectionOptions) {
     super()
@@ -289,7 +316,7 @@ export class XClient extends EventEmitter {
     this.pendingAtoms = {}
 
     Object.entries(reqs).forEach(([reqName, reqReplTemplate]) => {
-      target[reqName] = function reqProxy(this: XClient, ...args) {
+      target[reqName] = function reqProxy(this: XClient, ...args: any[]) {
         if (client._closing) {
           throw new Error('client is in closing state')
         }
@@ -361,7 +388,7 @@ export class XClient extends EventEmitter {
           for (let a = 0; a < arrayTemplateType[1].length; ++a) {
             requestArguments.push(arrayTemplateType[1][a])
           }
-          args.forEach(element => requestArguments.push(element));
+          args.forEach(element => requestArguments.push(element))
 
           if (callback) {
             this.replies[this.seqNum] = [reqReplTemplate[1], callback]

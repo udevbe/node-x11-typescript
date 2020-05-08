@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer'
 import { EventEmitter } from 'events'
 import { Writable } from 'stream'
-import { padded_length } from './xutil'
+import { paddedLength } from './xutil'
 
 enum ProtocolFormat {
   C = 'C',
@@ -229,7 +229,7 @@ export class PackStream extends EventEmitter {
       if (f === ProtocolFormat.x) {
         packetlength++
       } else if (f === ProtocolFormat.p) {
-        packetlength += padded_length(args[arg++].length)
+        packetlength += paddedLength(args[arg++].length)
       } else if (f === ProtocolFormat.a) {
         packetlength += args[arg].length
         arg++
@@ -297,7 +297,7 @@ export class PackStream extends EventEmitter {
         }
         case ProtocolFormat.p: {  // padded string
           const str = args[arg++]
-          const len = padded_length(str.length)
+          const len = paddedLength(str.length)
           // TODO: buffer.write could be faster
           let c = 0
           for (; c < str.length; ++c) {

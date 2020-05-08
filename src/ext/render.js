@@ -177,7 +177,7 @@ exports.requireExt = function(display, callback) {
       var reqLen = 2;
       var format = 'CCSLSxxp';
       var params = [ext.majorOpcode, 30, reqLen, pid, name.length, name];
-      reqLen += xutil.padded_length(name.length + 3) / 4 + filterParams.length;
+      reqLen += xutil.paddedLength(name.length + 3) / 4 + filterParams.length;
 
       if (
         name == 'nearest' ||
@@ -599,7 +599,7 @@ exports.requireExt = function(display, callback) {
     function wstring(bits, s) {
       var charLength = bits / 8;
       var dataLength = s.length * charLength;
-      var res = Buffer.alloc(xutil.padded_length(dataLength));
+      var res = Buffer.alloc(xutil.paddedLength(dataLength));
       debugger;
       var write = res[bufferWriteBits[bits]];
       res.fill(0);
@@ -652,10 +652,10 @@ exports.requireExt = function(display, callback) {
         var g = glyphs[i];
         switch (typeof g) {
           case 'string':
-            length += xutil.padded_length(g.length * charLength) / 4 + 2;
+            length += xutil.paddedLength(g.length * charLength) / 4 + 2;
             break;
           case 'object':
-            length += xutil.padded_length(g[2].length * charLength) / 4 + 2;
+            length += xutil.paddedLength(g[2].length * charLength) / 4 + 2;
             break;
           case 'number': // glyphset id
             length += 3;

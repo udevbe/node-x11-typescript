@@ -1,4 +1,4 @@
-export function padded_length(len?: number): number {
+export function paddedLength(len?: number): number {
   if (len) {
     return ((len + 3) >> 2) << 2
   } else {
@@ -21,7 +21,7 @@ export function padded_string(str: string) {
     return ''
   }
 
-  const pad = padded_length(str.length) - str.length
+  const pad = paddedLength(str.length) - str.length
   let res = str
   for (let i = 0; i < pad; ++i) {
     res += String.fromCharCode(0)
