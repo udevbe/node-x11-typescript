@@ -1,7 +1,7 @@
 const x11 = require('../src')
 const should = require('should')
 
-const setupXvfb = require('./setupXvfb')
+const { setupXvfb } = require('./setupXvfb')
 // Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
 const displayNum = '93'
 const display = `:${displayNum}`

@@ -39,6 +39,7 @@ import { paddedLength } from '../xutil'
 // return event
 
 export interface AppleWMEvent extends XEvent {
+  type: number,
   name: 'AppleWMControllerNotify' | 'AppleWMActivationNotify' | 'AppleWMPasteboardNotify'
   time: number
   arg: number

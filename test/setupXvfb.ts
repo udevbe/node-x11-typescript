@@ -6,7 +6,7 @@ const cleanExit = function() {
 process.on('SIGINT', cleanExit) // catch ctrl-c
 process.on('SIGTERM', cleanExit) // catch kill
 
-async function setupXvfb(display: string, xAuthority: string): Promise<ChildProcessWithoutNullStreams> {
+export async function setupXvfb(display: string, xAuthority: string): Promise<ChildProcessWithoutNullStreams> {
   execSync(`xauth add ${display} . $(mcookie)`)
   const xProc = spawn('Xvfb', ['-auth', xAuthority, display])
   // make sure we kill xvfb if node is killed
@@ -15,5 +15,3 @@ async function setupXvfb(display: string, xAuthority: string): Promise<ChildProc
   })
   return new Promise(resolve => setTimeout(() => resolve(xProc), 50))
 }
-
-export default setupXvfb

@@ -1,8 +1,8 @@
 import type { ChildProcessWithoutNullStreams } from 'child_process'
-import should from 'should'
+import * as should from 'should'
 import { createClient, eventMask } from '../src'
 import { XCallback, XClient, XScreen } from '../src/xcore'
-import setupXvfb from './setupXvfb'
+import { setupXvfb } from './setupXvfb'
 // Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
 const displayNum = '99'
 const display = `:${displayNum}`
@@ -25,20 +25,20 @@ describe('AllowEvents', () => {
 
     client = createClient(testOptions, (err, dpy) => {
       should.not.exist(err)
-      if (dpy) {
-        X = dpy.client as XClient
-        screen = dpy.screen[0]
-        root = screen.root
-        wid = X.AllocID() as number
-        X.CreateWindow?.(wid,
-          root,
-          0,
-          0,
-          screen.pixel_width,
-          screen.pixel_height)
-        X.MapWindow?.(wid)
-        done()
-      }
+      // @ts-ignore
+      X = dpy.client as XClient
+      // @ts-ignore
+      screen = dpy.screen[0]
+      root = screen.root
+      wid = X.AllocID() as number
+      X.CreateWindow?.(wid,
+        root,
+        0,
+        0,
+        screen.pixel_width,
+        screen.pixel_height)
+      X.MapWindow?.(wid)
+      done()
     })
 
     client.on('error', err => {

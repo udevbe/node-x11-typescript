@@ -1,12 +1,13 @@
+import * as async from 'async'
+import { ChildProcessWithoutNullStreams } from 'child_process'
+import * as should from 'should'
+import * as sinon from 'sinon'
+import { createClient } from '../src'
 import { PackStream } from '../src/unpackstream'
-import { XClient } from '../src/xcore'
+import { XCallback, XClient, XError } from '../src/xcore'
 
-const x11 = require('../src')
-const should = require('should')
-const sinon = require('sinon')
-const async = require('async')
+import { setupXvfb } from './setupXvfb'
 
-const setupXvfb = require('./setupXvfb')
 // Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
 const displayNum = '98'
 const display = `:${displayNum}`
@@ -14,7 +15,7 @@ const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
 const connectionOptions = { display, xAuthority }
 
 describe('Atoms and atom names cache', () => {
-  let xvfbProc
+  let xvfbProc: ChildProcessWithoutNullStreams
 
   let client: XClient
   let X: XClient
@@ -23,11 +24,13 @@ describe('Atoms and atom names cache', () => {
   beforeAll(async done => {
     xvfbProc = await setupXvfb(display, xAuthority)
 
-    client = x11.createClient(connectionOptions, (err, dpy) => {
+    client = createClient(connectionOptions, (err, dpy) => {
       should.not.exist(err)
-      X = dpy.client
-      xPackStreamFlushSpy = sinon.spy(X.packStream, 'flush')
-      done()
+      if (dpy) {
+        X = dpy.client as XClient
+        xPackStreamFlushSpy = sinon.spy(X.packStream, 'flush')
+        done()
+      }
     })
 
     client.on('error', done)
@@ -44,8 +47,9 @@ describe('Atoms and atom names cache', () => {
   it('should be used directly when requesting std atoms with InternAtom', done => {
     // FIXME add protocol to XClient type
     // @ts-ignore
-    X.InternAtom(true, 'WM_NAME', (err, atom) => {
+    X.InternAtom(true, 'WM_NAME', (err: XError, atom: number) => {
       should.not.exist(err)
+      // @ts-ignore
       atom.should.equal(X.atoms.WM_NAME)
       sinon.assert.notCalled(xPackStreamFlushSpy)
       done()
@@ -58,8 +62,9 @@ describe('Atoms and atom names cache', () => {
     const xGetAtomName1Spy = sinon.spy(X.GetAtomName[1])
     // FIXME add protocol to XClient type
     // @ts-ignore
-    X.GetAtomName(52, (err, atomName) => {
+    X.GetAtomName(52, (err: XError, atomName: string) => {
       should.not.exist(err)
+      // @ts-ignore
       atomName.should.equal('UNDERLINE_THICKNESS')
       sinon.assert.notCalled(xGetAtomName1Spy)
       done()
@@ -74,20 +79,22 @@ describe('Atoms and atom names cache', () => {
       sinon.assert.calledOnce(xPackStreamFlushSpy)
       async.parallel(
         [
-          cb => {
+          (cb: XCallback<number>) => {
             // FIXME add protocol to XClient type
             // @ts-ignore
-            X.InternAtom(true, 'My testing atom', cb)
+            X.InternAtom?.(true, 'My testing atom', cb)
           },
-          cb => {
+          (cb: XCallback<string>) => {
             // FIXME add protocol to XClient type
             // @ts-ignore
-            X.GetAtomName(atom, cb)
+            X.GetAtomName?.(atom, cb)
           }
         ],
-        (err, results) => {
+        (err: Error, results: [number, string]) => {
           should.not.exist(err)
+          // @ts-ignore
           results[0].should.equal(atom)
+          // @ts-ignore
           results[1].should.equal('My testing atom')
           sinon.assert.calledOnce(xPackStreamFlushSpy)
           done()
@@ -97,7 +104,7 @@ describe('Atoms and atom names cache', () => {
   })
 
   it('should be used after the first request for non-std atom_names', done => {
-    let myName
+    let myName: string
     /*
      * First get an atom defined in the server greater than 68 (WM_TRANSIENT_FOR) and less than 100
      * and not already cached
@@ -105,7 +112,7 @@ describe('Atoms and atom names cache', () => {
     let myAtom = 69
     async.until(
       () => (myName || myAtom > 99),
-      cb => {
+      (cb: () => void) => {
         if (X.atomNames[myAtom]) {
           return cb()
         }
@@ -123,7 +130,7 @@ describe('Atoms and atom names cache', () => {
           cb()
         })
       },
-      err => {
+      (err: Error) => {
         should.not.exist(err)
         should.exist(myName)
         // @ts-ignore
@@ -136,6 +143,7 @@ describe('Atoms and atom names cache', () => {
           myAtom.should.equal(atom)
           sinon.assert.notCalled(xPackStreamFlushSpy)
           // @ts-ignore
+          // tslint:disable-next-line:no-unused-expression
           Object.keys(X.pendingAtoms).should.be.empty
           done()
         })

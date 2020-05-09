@@ -1,7 +1,10 @@
-const x11 = require('../src')
-const should = require('should')
+import { ChildProcessWithoutNullStreams } from 'child_process'
 
-const setupXvfb = require('./setupXvfb')
+import * as should from 'should'
+import { createClient } from '../src'
+import { XClient } from '../src/xcore'
+
+import { setupXvfb } from './setupXvfb'
 // Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
 const displayNum = '97'
 const display = `:${displayNum}`
@@ -10,16 +13,17 @@ const testOptions = { display, xAuthority }
 
 
 describe('requiring an X11 extension on same connection', () => {
-  let xvfbProc
+  let xvfbProc: ChildProcessWithoutNullStreams
 
-  let client
-  let X
+  let client: XClient
+  let X: XClient
 
   beforeAll(async done => {
     xvfbProc = await setupXvfb(display, xAuthority)
 
-    client = x11.createClient(testOptions, (err, dpy) => {
+    client = createClient(testOptions, (err, dpy) => {
       should.not.exist(err)
+      // @ts-ignore
       X = dpy.client
       done()
     })
@@ -41,8 +45,11 @@ describe('requiring an X11 extension on same connection', () => {
       should.not.exist(err)
       X.require('xtest', (err, randr1) => {
         should.not.exist(err)
-        randr.should.equal(randr1)
-        done()
+        if (randr) {
+          // @ts-ignore
+          randr.should.equal(randr1)
+          done()
+        }
       })
     })
   })

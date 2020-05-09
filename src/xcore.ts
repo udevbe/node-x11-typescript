@@ -86,7 +86,7 @@ export interface XVisual {
 }
 
 export interface XEvent {
-  type: number,
+  type: number
   seq: number,
   rawData?: Buffer,
   wid?: number
@@ -225,6 +225,23 @@ export class XClient extends EventEmitter {
   WarpPointer?: (srcWin: number, dstWin: number, srcX: number, srcY: number, srcWidth: number, srcHeight: number, dstX: number, dstY: number) => void
   GrabPointer?: (wid: number, ownerEvents: boolean, mask: number, pointerMode: number, keybMode: number, confineTo: number, cursor: number, time: number) => void
   AllowEvents?: (mode: number, ts: number) => void
+  InternAtom?: (returnOnlyIfExist: boolean, value: string, cb: XCallback<number>) => void
+  GetAtomName?: (atom: number, cb: XCallback<string>) => void
+  QueryTree?: (window: number, callback: XCallback<{
+    root: number,
+    parent: number,
+    children: number[]
+  }>) => void
+  ChangeWindowAttributes?: (wid: number, values: Partial<{ [key in keyof ValueMask['CreateWindow']]: number }>) => void
+  DestroyWindow?: (wid: number) => void
+  ChangeProperty?: (mode: 0 | 1 | 2, wid: number, atomName: number, atomType: number, units: 8 | 16 | 32, data: Buffer | string) => void
+  GetProperty?: (del: number, wid: number, name: number, type: number, longOffset: number, longLength: number, callback: XCallback<{ type: number, bytesAfter: number, data: Buffer }>) => void
+  CreateGC?: (cid: number, drawable: number, values: Partial<{
+    clipXOrigin: number; joinStyle: number; capStyle: number; arcMode: number; subwindowMode: number; foreground: number; graphicsExposures: number; clipMask: number; dashOffset: number; lineWidth: number; dashes: number; lineStyle: number; fillRule: number; background: number; function: number; tileStippleYOrigin: number; tile: number; fillStyle: number; stipple: number; planeMask: number; clipYOrigin: number; tileStippleXOrigin: number; font: number
+  }>) => void
+  ChangeGC?: (cid: number, values: Partial<{
+    clipXOrigin: number; joinStyle: number; capStyle: number; arcMode: number; subwindowMode: number; foreground: number; graphicsExposures: number; clipMask: number; dashOffset: number; lineWidth: number; dashes: number; lineStyle: number; fillRule: number; background: number; function: number; tileStippleYOrigin: number; tile: number; fillStyle: number; stipple: number; planeMask: number; clipYOrigin: number; tileStippleXOrigin: number; font: number
+  }>) => void
 
   constructor(displayNum: string, screenNum: string, options: XConnectionOptions) {
     super()
