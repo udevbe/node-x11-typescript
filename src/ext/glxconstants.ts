@@ -1,4 +1,4 @@
-module.exports = {
+export default {
     VERSION_1_1: 1,
     VERSION_1_2: 1,
     VERSION_1_3: 1,
@@ -86,7 +86,6 @@ module.exports = {
     CW: 0x0900,
     CCW: 0x0901,
     FRONT: 0x0404,
-    BACK: 0x0405,
     POLYGON_MODE: 0x0B40,
     POLYGON_SMOOTH: 0x0B41,
     POLYGON_STIPPLE: 0x0B42,
@@ -145,7 +144,6 @@ module.exports = {
     LIGHT_MODEL_TWO_SIDE: 0x0B52,
     LIGHT_MODEL_LOCAL_VIEWER: 0x0B51,
     LIGHT_MODEL_AMBIENT: 0x0B53,
-    FRONT_AND_BACK: 0x0408,
     SHADE_MODEL: 0x0B54,
     FLAT: 0x1D00,
     SMOOTH: 0x1D01,
@@ -255,7 +253,6 @@ module.exports = {
     NONE: 0x0,
     LEFT: 0x0406,
     RIGHT: 0x0407,
-    FRONT: 0x0404,
     BACK: 0x0405,
     FRONT_AND_BACK: 0x0408,
     FRONT_LEFT: 0x0400,

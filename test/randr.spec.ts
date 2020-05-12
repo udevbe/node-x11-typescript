@@ -1,8 +1,11 @@
-const x11 = require('../src')
-const async = require('async')
-const should = require('should')
+// @ts-ignore
+import * as async from 'async'
+import { ChildProcessWithoutNullStreams } from 'child_process'
+import * as should from 'should'
+import { Randr } from '../src/ext/randr'
+import { createClient, XClient, XScreen } from '../src/xcore'
+import { setupXvfb } from './setupXvfb'
 
-const { setupXvfb } = require('./setupXvfb')
 // Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
 const displayNum = '83'
 const display = `:${displayNum}`
@@ -10,24 +13,26 @@ const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
 const testOptions = { display, xAuthority }
 
 describe('RANDR extension', () => {
-  let xvfbProc
+  let xvfbProc: ChildProcessWithoutNullStreams
 
-  let X
-  let screen
-  let root
-  let randr
+  let X: XClient
+  let screen: XScreen
+  let root: number
+  let randr: Randr
 
   beforeAll(async done => {
     xvfbProc = await setupXvfb(display, xAuthority)
 
-    const client = x11.createClient(testOptions, (err, dpy) => {
+    const client = createClient(testOptions, (err, dpy) => {
       should.not.exist(err)
-      X = dpy.client
+      // @ts-ignore
+      X = dpy.client as XClient
+      // @ts-ignore
       screen = dpy.screen[0]
       root = screen.root
-      X.require('randr', (err, ext) => {
+      X.require<Randr>('randr', (err, ext) => {
         should.not.exist(err)
-        randr = ext
+        randr = ext as Randr
         /* We HAVE to QueryVersion before using it. Otherwise it does not work as expected */
         randr.QueryVersion(1, 2, done)
       })
@@ -46,11 +51,12 @@ describe('RANDR extension', () => {
   it('GetScreenInfo should get same px and mm width and height as in display.screen[0]', done => {
     randr.GetScreenInfo(root, (err, info) => {
       should.not.exist(err)
-      const active_screen = info.screens[info.sizeID]
-      active_screen.px_width.should.equal(screen.pixel_width)
-      active_screen.px_height.should.equal(screen.pixel_height)
-      active_screen.mm_width.should.equal(screen.mm_width)
-      active_screen.mm_height.should.equal(screen.mm_height)
+      // @ts-ignore
+      const activeScreen = info.screens[info.sizeID]
+      activeScreen.pxWidth.should.equal(screen.pixel_width)
+      activeScreen.pxHeight.should.equal(screen.pixel_height)
+      activeScreen.mmWidth.should.equal(screen.mm_width)
+      activeScreen.mmHeight.should.equal(screen.mm_height)
       done()
     })
   })
@@ -60,8 +66,9 @@ describe('RANDR extension', () => {
       should.not.exist(err)
       should.exist(resources)
       async.each(
+        // @ts-ignore
         resources.outputs,
-        (output, cb) => {
+        (output: number, cb: () => void) => {
           randr.GetOutputInfo(output, 0, (err, info) => {
             should.not.exist(err)
             should.exist(info)
