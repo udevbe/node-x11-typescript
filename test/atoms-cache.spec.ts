@@ -5,7 +5,6 @@ import * as sinon from 'sinon'
 import { createClient } from '../src'
 import { PackStream } from '../src/unpackstream'
 import { XCallback, XClient, XError } from '../src/xcore'
-
 import { setupXvfb } from './setupXvfb'
 
 // Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
@@ -28,6 +27,7 @@ describe('Atoms and atom names cache', () => {
       should.not.exist(err)
       if (dpy) {
         X = dpy.client as XClient
+        // @ts-ignore
         xPackStreamFlushSpy = sinon.spy(X.packStream, 'flush')
         done()
       }
@@ -51,6 +51,7 @@ describe('Atoms and atom names cache', () => {
       should.not.exist(err)
       // @ts-ignore
       atom.should.equal(X.atoms.WM_NAME)
+      // @ts-ignore
       sinon.assert.notCalled(xPackStreamFlushSpy)
       done()
     })
@@ -76,7 +77,9 @@ describe('Atoms and atom names cache', () => {
     // @ts-ignore
     X.InternAtom(false, 'My testing atom', (err, atom) => {
       should.not.exist(err)
+      // @ts-ignore
       sinon.assert.calledOnce(xPackStreamFlushSpy)
+      // @ts-ignore
       async.parallel(
         [
           (cb: XCallback<number>) => {
@@ -96,6 +99,7 @@ describe('Atoms and atom names cache', () => {
           results[0].should.equal(atom)
           // @ts-ignore
           results[1].should.equal('My testing atom')
+          // @ts-ignore
           sinon.assert.calledOnce(xPackStreamFlushSpy)
           done()
         }
@@ -111,6 +115,7 @@ describe('Atoms and atom names cache', () => {
      */
     let myAtom = 69
     async.until(
+      // @ts-ignore
       () => (myName || myAtom > 99),
       (cb: () => void) => {
         if (X.atomNames[myAtom]) {
@@ -141,6 +146,7 @@ describe('Atoms and atom names cache', () => {
           should.not.exist(err)
           // @ts-ignore
           myAtom.should.equal(atom)
+          // @ts-ignore
           sinon.assert.notCalled(xPackStreamFlushSpy)
           // @ts-ignore
           // tslint:disable-next-line:no-unused-expression
