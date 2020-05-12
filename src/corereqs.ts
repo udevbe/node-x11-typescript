@@ -287,6 +287,8 @@ the way requests are described here
 
 */
 
+// @ts-ignore
+// @ts-ignore
 export const coreRequests: ProtocolTemplates = {
   CreateWindow: [
     // create request packet - function OR format string
@@ -338,7 +340,8 @@ export const coreRequests: ProtocolTemplates = {
     (buf: Buffer, backingStore: number) => {
       // TODO: change from array to named object fields
       const res = buf.unpack('LSCCLLCCCCLLLS')
-      const ret: { [key: string]: number } = { backingStore: backingStore };
+      const ret: { [key: string
+          ]: number } = { backingStore: backingStore };
       ('visual klass bitGravity winGravity backingPlanes backingPixel' +
         ' saveUnder mapIsInstalled mapState overrideRedirect colormap' +
         ' allEventMasks myEventMasks doNotPropogateMask')
@@ -384,32 +387,38 @@ export const coreRequests: ProtocolTemplates = {
   ],
 
   ResizeWindow: [
-    function(win: number, width: number, height: number) {
-      return module.exports.ConfigureWindow[0](win, { width: width, height: height })
-    }
+    // @ts-ignore
+    (win: number, width: number, height: number) => coreRequests.ConfigureWindow[0](win, {
+      width: width,
+      height: height
+    })
   ],
 
   MoveWindow: [
     function(win: number, x: number, y: number) {
-      return module.exports.ConfigureWindow[0](win, { x: x, y: y })
+      // @ts-ignore
+      return coreRequests.ConfigureWindow[0](win, { x: x, y: y })
     }
   ],
 
   MoveResizeWindow: [
     function(win: number, x: number, y: number, width: number, height: number) {
-      return module.exports.ConfigureWindow[0](win, { x: x, y: y, width: width, height: height })
+      // @ts-ignore
+      return coreRequests.ConfigureWindow[0](win, { x: x, y: y, width: width, height: height })
     }
   ],
 
   RaiseWindow: [
     function(win: number) {
-      return module.exports.ConfigureWindow[0](win, { stackMode: 0 })
+      // @ts-ignore
+      return coreRequests.ConfigureWindow[0](win, { stackMode: 0 })
     }
   ],
 
   LowerWindow: [
     function(win: number) {
-      return module.exports.ConfigureWindow[0](win, { stackMode: 1 })
+      // @ts-ignore
+      return coreRequests.ConfigureWindow[0](win, { stackMode: 1 })
     }
   ],
 
@@ -551,7 +560,7 @@ export const coreRequests: ProtocolTemplates = {
   ],
 
   SendEvent: [
-    function(destination: number, propagate: number, eventMask: number, eventRawData: Buffer) {
+    function(destination: number, propagate: boolean, eventMask: number, eventRawData: Buffer) {
       return ['CCSLLa', [25, propagate, 11, destination, eventMask, eventRawData]]
     }
   ],
@@ -1005,9 +1014,6 @@ export const coreRequests: ProtocolTemplates = {
     }
   ],
 
-  // @ts-ignore
-  KillKlient: this.KillClient,
-
   SetScreenSaver: [
     function(timeout: number, interval: number, preferBlanking: number, allowExposures: number) {
       return ['CxSssCCxx', [107, 3, timeout, interval, preferBlanking, allowExposures]]
@@ -1022,7 +1028,7 @@ export const coreRequests: ProtocolTemplates = {
   ],
 
   ForceScreenSaver: [
-    function(activate: number) {
+    function(activate: boolean) {
       return ['CCS', [115, activate ? 1 : 0, 1]]
     }
   ]

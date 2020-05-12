@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "description": "",
   "keywords": [],
-  "main": "dist/browser-x11.umd.js",
-  "module": "dist/browser-x11.es5.js",
-  "typings": "dist/types/browser-x11.d.ts",
+  "main": "./dist/browser-x11.umd.js",
+  "module": "./dist/browser-x11.es5.js",
+  "typings": "./dist/types/browser-x11.d.ts",
   "files": [
     "dist"
   ],

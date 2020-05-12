@@ -1,8 +1,10 @@
-const x11 = require('../src')
-const should = require('should')
-const assert = require('assert')
+import { ChildProcessWithoutNullStreams } from "child_process"
+import { createClient, XClient, XDisplay } from '../src/xcore'
 
-const { setupXvfb } = require('./setupXvfb')
+import { setupXvfb } from './setupXvfb'
+import * as assert from 'assert'
+import * as should from 'should'
+
 // Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
 const displayNum = '89'
 const display = `:${displayNum}`
@@ -10,10 +12,10 @@ const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
 const testOptions = { display, xAuthority }
 
 describe('ForceScreenSaver request', () => {
-  let xvfbProc
+  let xvfbProc: ChildProcessWithoutNullStreams
 
-  let xDisplay
-  let X
+  let xDisplay: XDisplay
+  let X: XClient
 
   beforeAll(async (done) => {
     xvfbProc = await setupXvfb(display, xAuthority)
@@ -26,10 +28,10 @@ describe('ForceScreenSaver request', () => {
   })
 
   beforeEach(done => {
-    const client = x11.createClient(testOptions,(err, dpy) => {
+    const client = createClient(testOptions,(err, dpy) => {
       if (!err) {
-        xDisplay = dpy
-        X = xDisplay.client
+        xDisplay = dpy as XDisplay
+        X = xDisplay.client as XClient
       }
 
       done(err)
@@ -40,23 +42,23 @@ describe('ForceScreenSaver request', () => {
   afterEach(done => {
     X.terminate()
     X.on('end', done)
-    X = null
-    xDisplay = null
   })
 
   it('should exist as client member', done => {
     should.exist(X.ForceScreenSaver)
-    assert.equal(typeof X.ForceScreenSaver, 'function')
+    assert.strictEqual(typeof X.ForceScreenSaver, 'function')
     done()
   })
 
   it('should be callable with true parameter', done => {
+    // @ts-ignore
     X.ForceScreenSaver(true)
     // any way to check if it is running?
     done()
   })
 
   it('should be callable with false parameter', done => {
+    // @ts-ignore
     X.ForceScreenSaver(false)
     // any way to check if it is NOT running?
     done()

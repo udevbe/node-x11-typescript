@@ -160,6 +160,23 @@ export class XError extends Error {
   }
 }
 
+export interface WindowAttributes {
+  visual: number
+  klass: number
+  bitGravity: number
+  winGravity: number
+  backingPlanes: number
+  backingPixel: number
+  saveUnder: number
+  mapIsInstalled: number
+  mapState: number
+  overrideRedirect: number
+  colormap: number
+  allEventMasks: number
+  myEventMasks: number
+  doNotPropogateMask: number
+}
+
 export class XClient extends EventEmitter {
   private readonly options: XConnectionOptions
   private coreRequests: {}
@@ -209,7 +226,7 @@ export class XClient extends EventEmitter {
                   depth?: number,
                   _class?: number,
                   visual?: number,
-                  values?: Partial<Exclude<{ [key in keyof ValueMask['CreateWindow']]: number }, 'id' | 'parentId' | 'x' | 'y' | 'width' | 'height' | 'borderWidth' | 'depth' | '_class' | 'visual'>>
+                  values?: Partial<Exclude<{ [key in keyof ValueMask['CreateWindow']]: number | boolean }, 'id' | 'parentId' | 'x' | 'y' | 'width' | 'height' | 'borderWidth' | 'depth' | '_class' | 'visual'>>
   ) => void
   MapWindow?: (wid: number) => void
   QueryPointer?: (wid: number, callback: XCallback<{
@@ -242,6 +259,18 @@ export class XClient extends EventEmitter {
   ChangeGC?: (cid: number, values: Partial<{
     clipXOrigin: number; joinStyle: number; capStyle: number; arcMode: number; subwindowMode: number; foreground: number; graphicsExposures: number; clipMask: number; dashOffset: number; lineWidth: number; dashes: number; lineStyle: number; fillRule: number; background: number; function: number; tileStippleYOrigin: number; tile: number; fillStyle: number; stipple: number; planeMask: number; clipYOrigin: number; tileStippleXOrigin: number; font: number
   }>) => void
+  GetWindowAttributes?: (wid: number, callback: XCallback<WindowAttributes>) => void
+  DeleteProperty?: (wid: number, atom: number) => void
+  KillClient?: (resource: number) => void
+  ForceScreenSaver?: (activate: boolean) => void
+  UnmapWindow?: (wid: number) => void
+  ResizeWindow?: (wid: number, width: number, height: number) => void
+  MoveWindow?: (wid: number, x: number, y: number) => void
+  MoveResizeWindow?: (win: number, x: number, y: number, width: number, height: number) => void
+  RaiseWindow?: (win: number) => void
+  LowerWindow?: (win: number) => void
+  ConfigureWindow?: (win: number, options: { stackMode: number, sibling: number; borderWidth: number; x: number; y: number; width: number; height: number }) => void
+  SendEvent?: (destination: number, propagate: boolean, eventMask: number, eventRawData: Buffer) => void
 
   constructor(displayNum: string, screenNum: string, options: XConnectionOptions) {
     super()

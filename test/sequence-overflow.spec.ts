@@ -1,7 +1,9 @@
-const x11 = require('../src')
-const should = require('should')
+import { ChildProcessWithoutNullStreams } from 'child_process'
+import * as should from 'should'
+import { createClient } from '../src'
+import { XCallback, XClient, XDisplay } from '../src/xcore'
+import { setupXvfb } from './setupXvfb'
 
-const { setupXvfb } = require('./setupXvfb')
 // Make sure to give each test file it's own unique display num to ensure they connect to to their own X server.
 const displayNum = '82'
 const display = `:${displayNum}`
@@ -9,10 +11,10 @@ const xAuthority = `/tmp/.Xauthority-test-Xvfb-${displayNum}`
 const testOptions = { display, xAuthority }
 
 describe('Client', () => {
-  let xvfbProc
+  let xvfbProc: ChildProcessWithoutNullStreams
 
-  let xDisplay
-  let X
+  let xDisplay: XDisplay
+  let X: XClient
 
   beforeAll(async (done) => {
     xvfbProc = await setupXvfb(display, xAuthority)
@@ -25,10 +27,10 @@ describe('Client', () => {
   })
 
   beforeEach(done => {
-    const client = x11.createClient(testOptions, (err, dpy) => {
+    const client = createClient(testOptions, (err, dpy) => {
       if (!err) {
-        xDisplay = dpy
-        X = xDisplay.client
+        xDisplay = dpy as XDisplay
+        X = xDisplay.client as XClient
         done()
         client.removeListener('error', done)
       } else {
@@ -50,21 +52,24 @@ describe('Client', () => {
     let left = total
     const start = Date.now()
 
-    function test(err, str) {
-      if (err)
+    const test: XCallback<string> = (err, str) => {
+      if (err) {
         return done(err)
+      }
 
-      if (left == 0) {
+      if (left === 0) {
         const end = Date.now()
         const dur = end - start
         console.log(total + ' requests finished in ' + dur + ' ms, ' + 1000 * total / dur + ' req/sec')
         return done()
       }
       left--
+      // @ts-ignore
       xDisplay.client.GetAtomName(1, test)
     }
 
     left++
+    // @ts-ignore
     test() // first call starts sequens and not a callback from GetAtomName, thus left++
   })
 })
