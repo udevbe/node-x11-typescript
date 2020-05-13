@@ -7,7 +7,7 @@ export interface BigRequest extends XExtension {
 }
 
 // TODO: move to templates
-export const requireExt: XExtensionInit<BigRequest> = (display: XDisplay, callback: XCallback<BigRequest, Error>) => {
+export const requireExt: XExtensionInit<BigRequest> = (display, callback) => {
   const X = display.client as XClient
   // @ts-ignore
   X.QueryExtension<BigRequest>('BIG-REQUESTS', (err, ext: BigRequest) => {
