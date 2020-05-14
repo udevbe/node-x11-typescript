@@ -207,7 +207,7 @@ export class XClient extends EventEmitter {
 
   private eventConsumers: { [key: number]: EventEmitter } = {} // maps window id to eventemitter TODO: bad name
   extraEventParsers: { [key: number]: XEventParser<XEvent> } = {}
-  private errorParsers: { [key: number]: XErrorParser } = {}
+  errorParsers: { [key: number]: XErrorParser } = {}
   private _extensions: { [key: string]: XExtension } = {}
   private _closing = false
   private _unusedIds: number[] = []

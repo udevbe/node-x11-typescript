@@ -4,8 +4,8 @@ var constants = require('./glxconstants');
 
 var MAX_SMALL_RENDER=65536-16;
 
-module.exports = function(GLX, ctx) {
-    buffers = [];
+export default function(GLX, ctx) {
+    const buffers = [];
     var currentLength = 0;
 
     function commandBuffer(opcode, len) {
@@ -272,7 +272,7 @@ module.exports = function(GLX, ctx) {
 
           res[8] = 0; // swapbytes
           res[9] = 0; // lsbfirst
-          res.writeUInt16LE(0, 10);   // unused 
+          res.writeUInt16LE(0, 10);   // unused
 
 	/*
 	defaults: (from http://stackoverflow.com/questions/21563590/glteximage2d-protocol-arguments?noredirect=1#comment32577251_21563590 )
@@ -314,9 +314,9 @@ module.exports = function(GLX, ctx) {
             throw new Error('unsupported texture type:' + type);
           }
 
-          // bake sure buffer for glxRender request is emptied first 
+          // bake sure buffer for glxRender request is emptied first
           render();
-          
+
           var dataLen = res.length;
           var maxSize = 262124;
           var totalRequests = 1 + parseInt(dataLen / maxSize) - 1;
@@ -330,7 +330,7 @@ module.exports = function(GLX, ctx) {
             GLX.RenderLarge(ctx, 2, 2, Buffer(0));
             return;
           }
-       
+
           var pos = 0;
           var reqNum = 1;
           while(dataLen > 0) {
@@ -344,9 +344,9 @@ module.exports = function(GLX, ctx) {
               reqNum++;
             }
           }
-          
+
         },
-     
+
         ProgramString: function(target, format, src) {
           serialize3i(target, format, src);
           buffers.push(Buffer(src));
@@ -356,7 +356,7 @@ module.exports = function(GLX, ctx) {
           serialize2i(target, format, src);
         },
 
-        
+
 
         TexCoord2f: function(x, y) {
             serialize2f(54, x, y);
