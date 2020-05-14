@@ -14,10 +14,9 @@
 */
 // TODO: move to templates
 import { XCallback, XClient, XExtension, XExtensionInit } from '../xcore'
+import { glxrender, RenderPipeline } from './glxrender'
 
-import * as glxrender from './glxrender'
-
-interface GLX extends XExtension {
+export interface GLX extends XExtension {
   QueryVersion: (clientMaj: number, clientMin: number, callback: XCallback<[number, number]>) => void
   QueryServerString: (screen: number, name: number, callback: XCallback<string>) => void
   CreateGLXPixmap: (screen: number, visual: number, pixmap: number, glxpixmap: number) => void
@@ -56,7 +55,7 @@ interface GLX extends XExtension {
   BindTexImage: (ctx: number, drawable: number, buffer: number, attribs: number[]) => void
   ReleaseTexImage: (ctx: number, drawable: number, buffer: number) => void
   RenderLarge: (ctx: number, requestNum: number, requestTotal: number, data: Buffer) => void
-  renderPipeline: (ctx: number) => glxrender
+  renderPipeline: (ctx: number) => RenderPipeline
 }
 
 export const requireExt: XExtensionInit<GLX> = (display, callback) => {
