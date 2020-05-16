@@ -6,4 +6,5 @@ WIP
 ## TODO
 - [x] fix test setup
 - [x] migrate to jest & remove mocha
-- [ ] migrate to typescript - in progress...
+- [x] migrate to typescript
+- [ ] fix all unit tests
