@@ -1,4 +1,4 @@
-import * as async from 'async'
+import { parallel, until } from 'async'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import * as should from 'should'
 import * as sinon from 'sinon'
@@ -80,7 +80,7 @@ describe('Atoms and atom names cache', () => {
       // @ts-ignore
       sinon.assert.calledOnce(xPackStreamFlushSpy)
       // @ts-ignore
-      async.parallel(
+      parallel(
         [
           (cb: XCallback<number>) => {
             // FIXME add protocol to XClient type
@@ -114,15 +114,20 @@ describe('Atoms and atom names cache', () => {
      * and not already cached
      */
     let myAtom = 69
-    async.until(
+    until(
       // @ts-ignore
-      () => (myName || myAtom > 99),
-      (cb: () => void) => {
+      (cb) => {
+        if (myName) {
+          return cb(null, true)
+        } else {
+          return cb(null, myAtom > 99)
+        }
+      },
+      (cb) => {
         if (X.atomNames[myAtom]) {
           return cb()
         }
 
-        // FIXME add protocol to XClient type
         // @ts-ignore
         X.GetAtomName(myAtom, (err, name) => {
           should.not.exist(err)
@@ -135,7 +140,7 @@ describe('Atoms and atom names cache', () => {
           cb()
         })
       },
-      (err: Error) => {
+      (err) => {
         should.not.exist(err)
         should.exist(myName)
         // @ts-ignore
