@@ -110,7 +110,7 @@
     "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-sourcemaps": "^0.6.2",
     "rollup-plugin-typescript2": "^0.27.1",
-    "semantic-release": "^17.0.7",
+    "semantic-release": "^17.2.3",
     "shelljs": "^0.8.4",
     "should": "^13.2.3",
     "sinon": "^9.0.2",
